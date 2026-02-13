@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import { useState, useMemo } from "react"
-import { useRouter } from "next/navigation"
-import { useForm } from "react-hook-form"
-import { zodResolver } from "@hookform/resolvers/zod"
-import { toast } from "sonner"
+import { useState, useMemo } from "react";
+import { useRouter } from "next/navigation";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { toast } from "sonner";
 import {
   Store,
   Truck,
@@ -16,52 +16,52 @@ import {
   MapPin,
   StickyNote,
   Loader2,
-} from "lucide-react"
-import { useAppSelector, useAppDispatch } from "@/store/hooks"
+} from "lucide-react";
+import { useAppSelector, useAppDispatch } from "@/store/hooks";
 import {
   selectCartItems,
   selectCartSubtotal,
   selectMaxLeadTime,
   clearCart,
-} from "@/store/cart-slice"
-import { pickupLocations, siteSettings } from "@/lib/mock-data"
-import { getEarliestFulfillmentDate, isDateDisabled } from "@/lib/fulfillment"
-import { checkoutFormSchema, type CheckoutFormValues } from "@/lib/validations"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Calendar } from "@/components/ui/calendar"
-import { Separator } from "@/components/ui/separator"
+} from "@/store/cart-slice";
+import { pickupLocations, siteSettings } from "@/lib/mock-data";
+import { getEarliestFulfillmentDate, isDateDisabled } from "@/lib/fulfillment";
+import { checkoutFormSchema, type CheckoutFormValues } from "@/lib/validations";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Calendar } from "@/components/ui/calendar";
+import { Separator } from "@/components/ui/separator";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "@/components/ui/select";
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
-} from "@/components/ui/popover"
-import { cn } from "@/lib/utils"
+} from "@/components/ui/popover";
+import { cn } from "@/lib/utils";
 
 export function CheckoutForm() {
-  const router = useRouter()
-  const dispatch = useAppDispatch()
-  const items = useAppSelector(selectCartItems)
-  const subtotal = useAppSelector(selectCartSubtotal)
-  const maxLeadTime = useAppSelector(selectMaxLeadTime)
-  const [isSubmitting, setIsSubmitting] = useState(false)
+  const router = useRouter();
+  const dispatch = useAppDispatch();
+  const items = useAppSelector(selectCartItems);
+  const subtotal = useAppSelector(selectCartSubtotal);
+  const maxLeadTime = useAppSelector(selectMaxLeadTime);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const allPickupAllowed = items.every((i) => i.pickup_allowed)
-  const allDeliveryAllowed = items.every((i) => i.delivery_allowed)
+  const allPickupAllowed = items.every((i) => i.pickup_allowed);
+  const allDeliveryAllowed = items.every((i) => i.delivery_allowed);
 
   const earliestDate = useMemo(
     () => getEarliestFulfillmentDate(maxLeadTime),
-    [maxLeadTime]
-  )
+    [maxLeadTime],
+  );
 
   const {
     register,
@@ -84,32 +84,28 @@ export function CheckoutForm() {
       deliveryZip: "",
       orderNotes: "",
     },
-  })
+  });
 
-  const fulfillmentMethod = watch("fulfillmentMethod")
-  const selectedDate = watch("fulfillmentDate")
+  const fulfillmentMethod = watch("fulfillmentMethod");
+  const selectedDate = watch("fulfillmentDate");
   const deliveryFee =
-    fulfillmentMethod === "delivery" ? siteSettings.delivery_fee : 0
-  const total = subtotal + deliveryFee
+    fulfillmentMethod === "delivery" ? siteSettings.delivery_fee : 0;
+  const total = subtotal + deliveryFee;
 
   const onSubmit = async (data: CheckoutFormValues) => {
-    setIsSubmitting(true)
+    setIsSubmitting(true);
     try {
-      // In production, this would call POST /api/checkout to create a Stripe session
-      // For now, we simulate the order creation
-      const confirmationNumber = `TB-${Date.now().toString(36).toUpperCase()}`
+      // Store order data temporarily for the success page
+      const pickupLocation = data.pickupLocationId
+        ? pickupLocations.find((l) => l.id.toString() === data.pickupLocationId)
+        : null;
 
-      // Store order data in sessionStorage for the success page
       const orderData = {
-        confirmationNumber,
         ...data,
         fulfillmentDate: data.fulfillmentDate.toISOString(),
-        pickupLocation: data.pickupLocationId
-          ? pickupLocations.find(
-              (l) => l.id.toString() === data.pickupLocationId
-            )
-          : null,
+        pickupLocation,
         items: items.map((i) => ({
+          id: i.id,
           name: i.name,
           quantity: i.quantity,
           price: i.price,
@@ -118,18 +114,21 @@ export function CheckoutForm() {
         subtotal,
         deliveryFee,
         total,
-      }
-      sessionStorage.setItem("tinabakery_last_order", JSON.stringify(orderData))
+      };
+      sessionStorage.setItem(
+        "YeneBakery_checkout_data",
+        JSON.stringify(orderData),
+      );
 
-      dispatch(clearCart())
-      toast.success("Order placed successfully!")
-      router.push("/checkout/success")
-    } catch {
-      toast.error("Something went wrong. Please try again.")
+      // Redirect to embedded checkout page
+      router.push("/checkout/payment");
+    } catch (error) {
+      console.error("[v0] Checkout submission error:", error);
+      toast.error("Something went wrong. Please try again.");
     } finally {
-      setIsSubmitting(false)
+      setIsSubmitting(false);
     }
-  }
+  };
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-8">
@@ -202,10 +201,7 @@ export function CheckoutForm() {
             )}
           </div>
           <div className="space-y-2">
-            <Label
-              htmlFor="businessName"
-              className="flex items-center gap-1.5"
-            >
+            <Label htmlFor="businessName" className="flex items-center gap-1.5">
               <Building2 className="h-3.5 w-3.5" />
               Business Name{" "}
               <span className="text-muted-foreground">(optional)</span>
@@ -238,7 +234,7 @@ export function CheckoutForm() {
                 "flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-colors",
                 fulfillmentMethod === "pickup"
                   ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/40"
+                  : "border-border hover:border-primary/40",
               )}
             >
               <Store
@@ -246,13 +242,11 @@ export function CheckoutForm() {
                   "h-6 w-6",
                   fulfillmentMethod === "pickup"
                     ? "text-primary"
-                    : "text-muted-foreground"
+                    : "text-muted-foreground",
                 )}
               />
               <div>
-                <p className="font-medium text-card-foreground">
-                  Store Pickup
-                </p>
+                <p className="font-medium text-card-foreground">Store Pickup</p>
                 <p className="text-sm text-muted-foreground">Free pickup</p>
               </div>
             </button>
@@ -265,7 +259,7 @@ export function CheckoutForm() {
                 "flex items-center gap-3 rounded-lg border-2 p-4 text-left transition-colors",
                 fulfillmentMethod === "delivery"
                   ? "border-primary bg-primary/5"
-                  : "border-border hover:border-primary/40"
+                  : "border-border hover:border-primary/40",
               )}
             >
               <Truck
@@ -273,7 +267,7 @@ export function CheckoutForm() {
                   "h-6 w-6",
                   fulfillmentMethod === "delivery"
                     ? "text-primary"
-                    : "text-muted-foreground"
+                    : "text-muted-foreground",
                 )}
               />
               <div>
@@ -403,7 +397,7 @@ export function CheckoutForm() {
                 variant="outline"
                 className={cn(
                   "w-full justify-start gap-2 text-left font-normal sm:w-[300px]",
-                  !selectedDate && "text-muted-foreground"
+                  !selectedDate && "text-muted-foreground",
                 )}
               >
                 <CalendarDays className="h-4 w-4" />
@@ -422,7 +416,7 @@ export function CheckoutForm() {
                 mode="single"
                 selected={selectedDate}
                 onSelect={(date) => {
-                  if (date) setValue("fulfillmentDate", date)
+                  if (date) setValue("fulfillmentDate", date);
                 }}
                 disabled={(date) => isDateDisabled(date, earliestDate)}
                 initialFocus
@@ -448,8 +442,7 @@ export function CheckoutForm() {
         <div className="mt-4 space-y-2">
           <Label htmlFor="orderNotes" className="flex items-center gap-1.5">
             <StickyNote className="h-3.5 w-3.5" />
-            Notes{" "}
-            <span className="text-muted-foreground">(optional)</span>
+            Notes <span className="text-muted-foreground">(optional)</span>
           </Label>
           <Textarea
             id="orderNotes"
@@ -503,9 +496,9 @@ export function CheckoutForm() {
 
       <p className="text-center text-xs text-muted-foreground">
         {
-          "By placing this order, you agree to TinaBakery's terms and conditions. Payment will be processed securely via Stripe."
+          "By placing this order, you agree to YeneBakery's terms and conditions. Payment will be processed securely via Stripe."
         }
       </p>
     </form>
-  )
+  );
 }

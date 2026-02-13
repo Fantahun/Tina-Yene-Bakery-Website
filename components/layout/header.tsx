@@ -6,7 +6,7 @@ import { ShoppingBag, Menu } from "lucide-react"
 import { useState } from "react"
 import { cn } from "@/lib/utils"
 import { useAppSelector } from "@/store/hooks"
-import { selectCartItemCount } from "@/store/cart-slice"
+import { selectCartItemCount, selectCartHydrated } from "@/store/cart-slice"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "./mobile-nav"
 
@@ -20,6 +20,7 @@ const navLinks = [
 export function Header() {
   const pathname = usePathname()
   const cartItemCount = useAppSelector(selectCartItemCount)
+  const hydrated = useAppSelector(selectCartHydrated)
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   // Don't show header on admin pages
@@ -32,7 +33,7 @@ export function Header() {
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
             <span className="text-2xl font-bold tracking-tight text-foreground">
-              Tina<span className="text-primary">Bakery</span>
+              Yene<span className="text-primary">Bakery</span>
             </span>
           </Link>
 
@@ -59,7 +60,7 @@ export function Header() {
             <Link href="/cart" className="relative" aria-label={`Cart with ${cartItemCount} items`}>
               <Button variant="ghost" size="icon" className="relative">
                 <ShoppingBag className="h-5 w-5" />
-                {cartItemCount > 0 && (
+                {hydrated && cartItemCount > 0 && (
                   <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
                     {cartItemCount > 99 ? "99+" : cartItemCount}
                   </span>

@@ -1,7 +1,8 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import Link from "next/link"
+import { useEffect, useState, Suspense } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import Link from "next/link";
 import {
   CheckCircle2,
   CalendarDays,
@@ -10,56 +11,145 @@ import {
   Store,
   Package,
   ArrowRight,
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
+  Loader2,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { getCheckoutSession } from "@/app/actions/stripe";
+import { useAppDispatch } from "@/store/hooks";
+import { clearCart } from "@/store/cart-slice";
 
 interface OrderItem {
-  name: string
-  quantity: number
-  price: number
-  lineTotal: number
+  name: string;
+  quantity: number;
+  price: number;
+  lineTotal: number;
 }
 
 interface OrderData {
-  confirmationNumber: string
-  customerName: string
-  customerEmail: string
-  customerPhone: string
-  fulfillmentMethod: "pickup" | "delivery"
-  fulfillmentDate: string
-  pickupLocation?: { name: string; address: string } | null
-  deliveryAddress?: string
-  deliveryCity?: string
-  deliveryState?: string
-  deliveryZip?: string
-  items: OrderItem[]
-  subtotal: number
-  deliveryFee: number
-  total: number
-  orderNotes?: string
+  confirmationNumber: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  fulfillmentMethod: "pickup" | "delivery";
+  fulfillmentDate: string;
+  pickupLocation?: { name: string; address: string } | null;
+  deliveryAddress?: string;
+  deliveryCity?: string;
+  deliveryState?: string;
+  deliveryZip?: string;
+  items: OrderItem[];
+  subtotal: number;
+  deliveryFee: number;
+  total: number;
+  orderNotes?: string;
 }
 
-export default function OrderSuccessPage() {
-  const [order, setOrder] = useState<OrderData | null>(null)
+function SuccessContent() {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const dispatch = useAppDispatch();
+  const [order, setOrder] = useState<OrderData | null>(null);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    try {
-      const stored = sessionStorage.getItem("tinabakery_last_order")
-      if (stored) {
-        setOrder(JSON.parse(stored))
+    const verifyAndLoadOrder = async () => {
+      const sessionId = searchParams.get("session_id");
+
+      if (!sessionId) {
+        const storedOrder = sessionStorage.getItem("YeneBakery_last_order");
+        if (storedOrder) {
+          try {
+            setOrder(JSON.parse(storedOrder));
+          } catch {
+            router.push("/");
+            return;
+          }
+        } else {
+          router.push("/");
+          return;
+        }
+        setLoading(false);
+        return;
       }
-    } catch {
-      // ignore
-    }
-  }, [])
+
+      try {
+        // Verify payment with Stripe
+        const session = await getCheckoutSession(sessionId);
+
+        if (session.payment_status !== "paid") {
+          router.push("/checkout");
+          return;
+        }
+
+        // Load order data from session storage
+        const storedData = sessionStorage.getItem("YeneBakery_checkout_data");
+        if (!storedData) {
+          router.push("/");
+          return;
+        }
+
+        const data = JSON.parse(storedData);
+        const confirmationNumber = `TB-${Date.now().toString(36).toUpperCase()}`;
+
+        const orderData: OrderData = {
+          confirmationNumber,
+          customerName: data.customerName,
+          customerEmail: data.customerEmail,
+          customerPhone: data.customerPhone,
+          fulfillmentMethod: data.fulfillmentMethod,
+          fulfillmentDate: data.fulfillmentDate,
+          pickupLocation: data.pickupLocation,
+          deliveryAddress: data.deliveryAddress,
+          deliveryCity: data.deliveryCity,
+          deliveryState: data.deliveryState,
+          deliveryZip: data.deliveryZip,
+          orderNotes: data.orderNotes,
+          items: data.items,
+          subtotal: data.subtotal,
+          deliveryFee: data.deliveryFee,
+          total: data.total,
+        };
+
+        // Store final order for display
+        sessionStorage.setItem(
+          "YeneBakery_last_order",
+          JSON.stringify(orderData),
+        );
+        sessionStorage.removeItem("YeneBakery_checkout_data");
+
+        // Clear cart
+        dispatch(clearCart());
+
+        setOrder(orderData);
+      } catch (error) {
+        console.error("[v0] Error verifying payment:", error);
+        router.push("/checkout");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    verifyAndLoadOrder();
+  }, [router, searchParams, dispatch]);
+
+  if (loading) {
+    return (
+      <div className="container mx-auto flex min-h-[60vh] items-center justify-center">
+        <div className="flex flex-col items-center gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <p className="text-lg text-muted-foreground">
+            Confirming your order...
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   if (!order) {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-7xl flex-col items-center justify-center px-4 py-16 text-center">
-        <h1 className="text-2xl font-bold text-foreground">
-          No order found
-        </h1>
+        <h1 className="text-2xl font-bold text-foreground">No order found</h1>
         <p className="mt-2 text-muted-foreground">
           It looks like you arrived here without placing an order.
         </p>
@@ -67,10 +157,10 @@ export default function OrderSuccessPage() {
           <Link href="/shop">Browse Our Menu</Link>
         </Button>
       </div>
-    )
+    );
   }
 
-  const fulfillmentDate = new Date(order.fulfillmentDate)
+  const fulfillmentDate = new Date(order.fulfillmentDate);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
@@ -226,5 +316,19 @@ export default function OrderSuccessPage() {
         </Button>
       </div>
     </div>
-  )
+  );
+}
+
+export default function OrderSuccessPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="container mx-auto flex min-h-[60vh] items-center justify-center">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+        </div>
+      }
+    >
+      <SuccessContent />
+    </Suspense>
+  );
 }

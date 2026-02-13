@@ -8,6 +8,7 @@ import { useAppSelector, useAppDispatch } from "@/store/hooks"
 import {
   selectCartItems,
   selectCartItemCount,
+  selectCartHydrated,
   clearCart,
   removeFromCart,
 } from "@/store/cart-slice"
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/button"
 export default function CartPage() {
   const items = useAppSelector(selectCartItems)
   const itemCount = useAppSelector(selectCartItemCount)
+  const hydrated = useAppSelector(selectCartHydrated)
   const dispatch = useAppDispatch()
   const [splitDialogOpen, setSplitDialogOpen] = useState(false)
 
@@ -42,6 +44,14 @@ export default function CartPage() {
     setSplitDialogOpen(false)
     toast.success(
       `Order split! ${quickGroup?.items.length || 0} item(s) kept in cart. You can order the remaining items separately.`
+    )
+  }
+
+  if (!hydrated) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
     )
   }
 

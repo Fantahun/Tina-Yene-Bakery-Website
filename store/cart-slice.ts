@@ -13,12 +13,13 @@ export interface CartItem {
 
 interface CartState {
   items: CartItem[]
+  hydrated: boolean
 }
 
 function loadCartFromStorage(): CartItem[] {
   if (typeof window === "undefined") return []
   try {
-    const stored = localStorage.getItem("tinabakery_cart")
+    const stored = localStorage.getItem("YeneBakery_cart")
     return stored ? JSON.parse(stored) : []
   } catch {
     return []
@@ -28,7 +29,7 @@ function loadCartFromStorage(): CartItem[] {
 function saveCartToStorage(items: CartItem[]) {
   if (typeof window === "undefined") return
   try {
-    localStorage.setItem("tinabakery_cart", JSON.stringify(items))
+    localStorage.setItem("YeneBakery_cart", JSON.stringify(items))
   } catch {
     // silent fail
   }
@@ -36,6 +37,7 @@ function saveCartToStorage(items: CartItem[]) {
 
 const initialState: CartState = {
   items: [],
+  hydrated: false,
 }
 
 const cartSlice = createSlice({
@@ -44,6 +46,7 @@ const cartSlice = createSlice({
   reducers: {
     hydrateCart(state) {
       state.items = loadCartFromStorage()
+      state.hydrated = true
     },
     addToCart(state, action: PayloadAction<CartItem>) {
       const existing = state.items.find((item) => item.id === action.payload.id)
@@ -81,6 +84,7 @@ export const { hydrateCart, addToCart, removeFromCart, updateQuantity, clearCart
 export default cartSlice.reducer
 
 // Selectors
+export const selectCartHydrated = (state: { cart: CartState }) => state.cart.hydrated
 export const selectCartItems = (state: { cart: CartState }) => state.cart.items
 export const selectCartItemCount = (state: { cart: CartState }) =>
   state.cart.items.reduce((total, item) => total + item.quantity, 0)

@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation"
 import { ShoppingBag, Home, Store, Info, Phone } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAppSelector } from "@/store/hooks"
-import { selectCartItemCount } from "@/store/cart-slice"
+import { selectCartItemCount, selectCartHydrated } from "@/store/cart-slice"
 import {
   Sheet,
   SheetContent,
@@ -29,13 +29,14 @@ interface MobileNavProps {
 export function MobileNav({ open, onClose }: MobileNavProps) {
   const pathname = usePathname()
   const cartItemCount = useAppSelector(selectCartItemCount)
+  const hydrated = useAppSelector(selectCartHydrated)
 
   return (
     <Sheet open={open} onOpenChange={onClose}>
       <SheetContent side="left" className="w-72 p-0">
         <SheetHeader className="border-b border-border p-6">
           <SheetTitle className="text-left text-xl font-bold tracking-tight">
-            Tina<span className="text-primary">Bakery</span>
+            Yene<span className="text-primary">Bakery</span>
           </SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col py-4" aria-label="Mobile navigation">
@@ -55,7 +56,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
               >
                 <Icon className="h-5 w-5" />
                 {link.label}
-                {link.href === "/cart" && cartItemCount > 0 && (
+                {link.href === "/cart" && hydrated && cartItemCount > 0 && (
                   <span className="ml-auto flex h-5 w-5 items-center justify-center rounded-full bg-primary text-[11px] font-semibold text-primary-foreground">
                     {cartItemCount}
                   </span>

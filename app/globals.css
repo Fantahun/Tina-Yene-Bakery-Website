@@ -2,6 +2,14 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Custom Sonner toast tweaks */
+.toaster[data-sonner-toaster] {
+  /* Move close button from top-left to top-right */
+  --toast-close-button-start: unset;
+  --toast-close-button-end: 0;
+  --toast-close-button-transform: translate(35%, -35%);
+}
+
 @layer utilities {
   .text-balance {
     text-wrap: balance;
@@ -10,7 +18,7 @@
 
 @layer base {
   :root {
-    /* TinaBakery Modern & Clean Palette */
+    /* YeneBakery Modern & Clean Palette */
     --background: 40 20% 98%;
     --foreground: 0 0% 10%;
     --card: 0 0% 100%;
@@ -54,4 +62,32 @@
   body {
     @apply bg-background text-foreground;
   }
+}
+
+/* Swiper fade effect fix - ensures slides don't stack/overlap */
+.swiper-fade .swiper-slide {
+  pointer-events: none;
+  transition-property: opacity;
+}
+
+.swiper-fade .swiper-slide-active {
+  pointer-events: auto;
+}
+
+.swiper-fade .swiper-slide-active,
+.swiper-fade .swiper-slide-active .swiper-slide-active {
+  pointer-events: auto;
+}
+
+/* Swiper pagination styling */
+.swiper-pagination-bullet {
+  background: hsl(var(--background)) !important;
+  opacity: 0.5 !important;
+  width: 10px !important;
+  height: 10px !important;
+}
+
+.swiper-pagination-bullet-active {
+  opacity: 1 !important;
+  background: hsl(var(--primary)) !important;
 }

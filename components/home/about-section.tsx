@@ -1,6 +1,6 @@
-"use client"
+"use client";
 
-import { Wheat, Clock, Heart, Truck } from "lucide-react"
+import { Wheat, Clock, Heart, Truck } from "lucide-react";
 
 const features = [
   {
@@ -27,23 +27,24 @@ const features = [
     description:
       "Order online and pick up in store, or have your favorites delivered right to your door.",
   },
-]
+];
 
 export function AboutSection() {
   return (
     <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
       <div className="mb-12 text-center">
         <h2 className="text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Why TinaBakery?
+          Why YeneBakery?
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-pretty text-muted-foreground">
-          More than just a bakery, we are a community built on the love of great bread and pastries
+          More than just a bakery, we are a community built on the love of great
+          bread and pastries
         </p>
       </div>
 
       <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
         {features.map((feature) => {
-          const Icon = feature.icon
+          const Icon = feature.icon;
           return (
             <div
               key={feature.title}
@@ -59,9 +60,9 @@ export function AboutSection() {
                 {feature.description}
               </p>
             </div>
-          )
+          );
         })}
       </div>
     </section>
-  )
+  );
 }

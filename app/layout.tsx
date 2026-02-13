@@ -1,35 +1,35 @@
-import type { Metadata, Viewport } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
-import { Toaster } from "sonner"
-import { ReduxProvider } from "@/store/provider"
-import { Header } from "@/components/layout/header"
-import { Footer } from "@/components/layout/footer"
+import type { Metadata, Viewport } from "next";
+import { Geist, Geist_Mono } from "next/font/google";
+import { ReduxProvider } from "@/store/provider";
+import { Header } from "@/components/layout/header";
+import { Footer } from "@/components/layout/footer";
+import { Toaster } from "@/components/ui/sonner";
 
-import "./globals.css"
+import "./globals.css";
 
-const _geist = Geist({ subsets: ["latin"] })
-const _geistMono = Geist_Mono({ subsets: ["latin"] })
+const _geist = Geist({ subsets: ["latin"] });
+const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: {
-    default: "TinaBakery | Fresh Artisan Baked Goods",
-    template: "%s | TinaBakery",
+    default: "YeneBakery | Fresh Artisan Baked Goods",
+    template: "%s | YeneBakery",
   },
   description:
     "Handcrafted artisan breads, pastries, cakes, and custom orders. Made with love and the finest ingredients. Order online for pickup or delivery.",
-}
+};
 
 export const viewport: Viewport = {
   themeColor: "#C4915C",
   width: "device-width",
   initialScale: 1,
   userScalable: true,
-}
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
     <html lang="en">
@@ -44,5 +44,5 @@ export default function RootLayout({
         </ReduxProvider>
       </body>
     </html>
-  )
+  );
 }

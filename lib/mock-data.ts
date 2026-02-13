@@ -256,13 +256,13 @@ export const products: Product[] = [
 export const pickupLocations: PickupLocation[] = [
   {
     id: 1,
-    name: "TinaBakery Main Store",
+    name: "YeneBakery Main Store",
     address: "123 Baker Street, Suite 100, Downtown",
     is_active: true,
   },
   {
     id: 2,
-    name: "TinaBakery Westside",
+    name: "YeneBakery Westside",
     address: "456 Elm Avenue, Westside Shopping Center",
     is_active: true,
   },
@@ -273,7 +273,7 @@ export const siteSettings = {
   delivery_fee: 5.99,
   min_order_delivery: 25.00,
   store_phone: "(555) 123-4567",
-  store_email: "hello@tinabakery.com",
+  store_email: "hello@YeneBakery.com",
 }
 
 export type OrderStatus =
@@ -320,7 +320,7 @@ export const mockOrders: Order[] = [
     customer_phone: "(555) 111-2222",
     fulfillment_method: "pickup",
     fulfillment_date: "2026-02-15",
-    pickup_location: "TinaBakery Main Store",
+    pickup_location: "YeneBakery Main Store",
     subtotal: 21.50,
     delivery_fee: 0,
     total: 21.50,
@@ -363,7 +363,7 @@ export const mockOrders: Order[] = [
     customer_phone: "(555) 555-6666",
     fulfillment_method: "pickup",
     fulfillment_date: "2026-02-18",
-    pickup_location: "TinaBakery Westside",
+    pickup_location: "YeneBakery Westside",
     subtotal: 85.00,
     delivery_fee: 0,
     total: 85.00,
@@ -383,7 +383,7 @@ export const mockOrders: Order[] = [
     customer_phone: "(555) 777-8888",
     fulfillment_method: "pickup",
     fulfillment_date: "2026-02-13",
-    pickup_location: "TinaBakery Main Store",
+    pickup_location: "YeneBakery Main Store",
     subtotal: 15.00,
     delivery_fee: 0,
     total: 15.00,

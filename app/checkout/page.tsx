@@ -5,21 +5,28 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { ArrowLeft } from "lucide-react"
 import { useAppSelector } from "@/store/hooks"
-import { selectCartItems } from "@/store/cart-slice"
+import { selectCartItems, selectCartHydrated } from "@/store/cart-slice"
 import { CheckoutForm } from "@/components/checkout/checkout-form"
 import { OrderSummary } from "@/components/checkout/order-summary"
 
 export default function CheckoutPage() {
   const router = useRouter()
   const items = useAppSelector(selectCartItems)
+  const hydrated = useAppSelector(selectCartHydrated)
 
   useEffect(() => {
-    if (items.length === 0) {
+    if (hydrated && items.length === 0) {
       router.push("/cart")
     }
-  }, [items, router])
+  }, [items, hydrated, router])
 
-  if (items.length === 0) return null
+  if (!hydrated || items.length === 0) {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    )
+  }
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
