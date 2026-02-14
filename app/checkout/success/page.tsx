@@ -90,7 +90,7 @@ function SuccessContent() {
         }
 
         const data = JSON.parse(storedData);
-        const confirmationNumber = `TB-${Date.now().toString(36).toUpperCase()}`;
+        const confirmationNumber = `YB-${Date.now().toString(36).toUpperCase()}`;
 
         const orderData: OrderData = {
           confirmationNumber,
@@ -123,7 +123,7 @@ function SuccessContent() {
 
         setOrder(orderData);
       } catch (error) {
-        console.error("[v0] Error verifying payment:", error);
+        console.error("[YeneBakery] Error verifying payment:", error);
         router.push("/checkout");
       } finally {
         setLoading(false);

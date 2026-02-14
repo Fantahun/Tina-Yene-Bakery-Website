@@ -25,16 +25,18 @@ function PaymentContent() {
   useEffect(() => {
     const initCheckout = async () => {
       try {
-        console.log("[v0] Starting checkout initialization");
+        console.log("[YeneBakery] Starting checkout initialization");
         const storedData = sessionStorage.getItem("YeneBakery_checkout_data");
 
         if (!storedData) {
-          console.log("[v0] No checkout data found, redirecting to checkout");
+          console.log(
+            "[YeneBakery] No checkout data found, redirecting to checkout",
+          );
           router.push("/checkout");
           return;
         }
 
-        console.log("[v0] Checkout data found, parsing...");
+        console.log("[YeneBakery] Checkout data found, parsing...");
         const data = JSON.parse(storedData) as CheckoutSessionData & {
           pickupLocation?: { id: number; name: string; address: string };
         };
@@ -60,24 +62,27 @@ function PaymentContent() {
           total: data.total,
         };
 
-        console.log("[v0] Creating checkout session with total:", data.total);
+        console.log(
+          "[YeneBakery] Creating checkout session with total:",
+          data.total,
+        );
         const result = await createCheckoutSession(sessionData);
         console.log(
-          "[v0] Checkout session result:",
+          "[YeneBakery] Checkout session result:",
           result ? "success" : "failed",
         );
 
         if (result?.clientSecret) {
-          console.log("[v0] Client secret received, setting state");
+          console.log("[YeneBakery] Client secret received, setting state");
           setClientSecret(result.clientSecret);
         } else {
           throw new Error("No client secret returned from Stripe");
         }
       } catch (err) {
-        console.error("[v0] Error initializing checkout:", err);
+        console.error("[YeneBakery] Error initializing checkout:", err);
         const errorMessage =
           err instanceof Error ? err.message : "Unknown error";
-        console.error("[v0] Error message:", errorMessage);
+        console.error("[YeneBakery] Error message:", errorMessage);
         setError(`Failed to initialize payment: ${errorMessage}`);
       }
     };

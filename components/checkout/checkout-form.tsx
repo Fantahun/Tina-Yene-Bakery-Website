@@ -123,7 +123,7 @@ export function CheckoutForm() {
       // Redirect to embedded checkout page
       router.push("/checkout/payment");
     } catch (error) {
-      console.error("[v0] Checkout submission error:", error);
+      console.error("[YeneBakery] Checkout submission error:", error);
       toast.error("Something went wrong. Please try again.");
     } finally {
       setIsSubmitting(false);
