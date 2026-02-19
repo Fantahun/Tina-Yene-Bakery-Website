@@ -128,6 +128,17 @@ export function Footer() {
               Terms of Service
             </Link>
           </div>
+          <div className="flex">
+            <p className="text-sm text-muted-foreground">
+              Designed &amp; Developed by:&nbsp;
+            <Link
+                href="https://fantahun.net/" target="_blank"
+                className="text-sm text-muted-foreground transition-colors hover:text-primary underline"
+            >
+               Fantahun Bishaw
+            </Link>
+            </p>
+          </div>
         </div>
       </div>
     </footer>
