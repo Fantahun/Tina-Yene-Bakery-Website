@@ -1,55 +1,50 @@
-"use client";
+"use client"
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { Lock, LogIn } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { toast } from "sonner";
+import { useState } from "react"
+import { useRouter, useSearchParams } from "next/navigation"
+import { signIn } from "next-auth/react"
+import { Lock, LogIn } from "lucide-react"
+
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { toast } from "sonner"
 
 export default function AdminLoginPage() {
-  const router = useRouter();
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter()
+  const params = useSearchParams()
+  const [username, setUsername] = useState("")
+  const [password, setPassword] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+
+  const error = params.get("error")
 
   const handleLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+    e.preventDefault()
+    setIsLoading(true)
 
-    try {
-      const response = await fetch("/api/admin/login", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ username, password }),
-      });
+    const result = await signIn("credentials", {
+      redirect: false,
+      username,
+      password,
+      callbackUrl: "/yeneAdmin",
+    })
 
-      const data = await response.json();
+    setIsLoading(false)
 
-      if (response.ok) {
-        sessionStorage.setItem("admin_authenticated", "true");
-        toast.success("Login successful!");
-        router.push("/admin");
-      } else {
-        toast.error(data.error || "Invalid credentials");
-      }
-    } catch (error) {
-      console.error("[YeneBakery] Login error:", error);
-      toast.error("An error occurred. Please try again.");
-    } finally {
-      setIsLoading(false);
+    if (!result) {
+      toast.error("Unexpected error. Please try again.")
+      return
     }
-  };
+
+    if (result.error) {
+      toast.error("Invalid username or password")
+      return
+    }
+
+    router.push(result.url || "/yeneAdmin")
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-muted/50 px-4">
@@ -62,6 +57,7 @@ export default function AdminLoginPage() {
           <CardDescription className="text-center">
             Enter your credentials to access the admin dashboard
           </CardDescription>
+          {error ? <p className="text-center text-sm text-destructive">{error}</p> : null}
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
@@ -103,5 +99,6 @@ export default function AdminLoginPage() {
         </CardContent>
       </Card>
     </div>
-  );
+  )
 }
+

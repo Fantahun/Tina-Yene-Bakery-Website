@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE `AdminUser` ADD COLUMN `email` VARCHAR(191) NULL,
+    ADD COLUMN `fullName` VARCHAR(191) NULL,
+    ADD COLUMN `phoneNumber` VARCHAR(191) NULL;

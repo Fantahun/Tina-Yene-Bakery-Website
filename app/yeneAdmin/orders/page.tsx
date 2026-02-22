@@ -1,26 +1,15 @@
 "use client"
 
 import { useState } from "react"
-import { Search, Filter, Package, Calendar, MapPin, Truck, Eye } from "lucide-react"
-import { mockOrders, type OrderStatus } from "@/lib/mock-data"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card"
+import { Calendar, Eye, Filter, MapPin, Package, Search, Truck } from "lucide-react"
+
 import { OrderDetailsDialog } from "@/components/admin/order-details-dialog"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { mockOrders, type OrderStatus } from "@/lib/mock-data"
 
 const statusColors: Record<OrderStatus, string> = {
   pending: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
@@ -41,8 +30,7 @@ export default function AdminOrdersPage() {
       order.customer_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       order.customer_email.toLowerCase().includes(searchQuery.toLowerCase())
 
-    const matchesStatus =
-      statusFilter === "all" || order.order_status === statusFilter
+    const matchesStatus = statusFilter === "all" || order.order_status === statusFilter
 
     return matchesSearch && matchesStatus
   })
@@ -51,12 +39,9 @@ export default function AdminOrdersPage() {
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-foreground">Orders</h1>
-        <p className="mt-1 text-muted-foreground">
-          Manage and track customer orders
-        </p>
+        <p className="mt-1 text-muted-foreground">Manage and track customer orders</p>
       </div>
 
-      {/* Filters */}
       <Card className="mb-6">
         <CardHeader>
           <CardTitle className="text-lg">Filter Orders</CardTitle>
@@ -91,39 +76,26 @@ export default function AdminOrdersPage() {
         </CardContent>
       </Card>
 
-      {/* Orders List */}
       <Card>
         <CardContent className="p-0">
           {filteredOrders.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <Package className="h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-medium text-foreground">
-                No orders found
-              </h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Try adjusting your search or filters
-              </p>
+              <h3 className="mt-4 text-lg font-medium text-foreground">No orders found</h3>
+              <p className="mt-2 text-sm text-muted-foreground">Try adjusting your search or filters</p>
             </div>
           ) : (
             <div className="divide-y divide-border">
               {filteredOrders.map((order) => (
-                <div
-                  key={order.id}
-                  className="flex items-center justify-between p-4 hover:bg-muted/50"
-                >
+                <div key={order.id} className="flex items-center justify-between p-4 hover:bg-muted/50">
                   <div className="flex flex-1 items-center gap-4">
                     <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10">
                       <Package className="h-6 w-6 text-primary" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <p className="font-semibold text-foreground">
-                          {order.confirmation_number}
-                        </p>
-                        <Badge
-                          className={statusColors[order.order_status]}
-                          variant="secondary"
-                        >
+                        <p className="font-semibold text-foreground">{order.confirmation_number}</p>
+                        <Badge className={statusColors[order.order_status]} variant="secondary">
                           {order.order_status.replace("_", " ")}
                         </Badge>
                       </div>
@@ -143,9 +115,7 @@ export default function AdminOrdersPage() {
                           )}
                           {order.fulfillment_method}
                         </span>
-                        <span className="font-medium">
-                          ${order.total.toFixed(2)}
-                        </span>
+                        <span className="font-medium">${order.total.toFixed(2)}</span>
                       </div>
                     </div>
                   </div>
@@ -175,3 +145,4 @@ export default function AdminOrdersPage() {
     </div>
   )
 }
+

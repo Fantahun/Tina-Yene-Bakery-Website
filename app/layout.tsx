@@ -33,7 +33,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">
+      <body
+        className={`${_geist.className} ${_geistMono.className} font-sans antialiased`}
+        suppressHydrationWarning
+      >
         <ReduxProvider>
           <div className="flex min-h-screen flex-col">
             <Header />

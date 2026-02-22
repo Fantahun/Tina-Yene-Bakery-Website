@@ -286,7 +286,7 @@ export type OrderStatus =
 export type PaymentStatus = "pending" | "paid" | "failed" | "refunded"
 
 export interface Order {
-  id: number
+  id: string
   confirmation_number: string
   customer_name: string
   customer_email: string
@@ -313,7 +313,7 @@ export interface Order {
 
 export const mockOrders: Order[] = [
   {
-    id: 1,
+    id: "a81bc81b-dead-4e5d-abff-90865d1e",
     confirmation_number: "TB-ABC123",
     customer_name: "Sarah Johnson",
     customer_email: "sarah@example.com",
@@ -335,7 +335,7 @@ export const mockOrders: Order[] = [
     ],
   },
   {
-    id: 2,
+    id: "a8c81b-dead-4e5d-abff-90865d1e",
     confirmation_number: "TB-DEF456",
     customer_name: "Mike Chen",
     customer_email: "mike@business.com",
@@ -356,7 +356,7 @@ export const mockOrders: Order[] = [
     ],
   },
   {
-    id: 3,
+    id: "a81bc81b-dead-4e5d-abff-90865d1e1ee",
     confirmation_number: "TB-GHI789",
     customer_name: "Emily Davis",
     customer_email: "emily@email.com",
@@ -376,7 +376,7 @@ export const mockOrders: Order[] = [
     ],
   },
   {
-    id: 4,
+    id: "a81bc81b-dead-5d-abff-90865d1e13b1",
     confirmation_number: "TB-JKL012",
     customer_name: "Tom Wilson",
     customer_email: "tom@email.com",
@@ -396,7 +396,7 @@ export const mockOrders: Order[] = [
     ],
   },
   {
-    id: 5,
+    id: "a81bc81b-dead-4e5d-abff-90865d1eqw",
     confirmation_number: "TB-MNO345",
     customer_name: "Lisa Park",
     customer_email: "lisa@design.co",

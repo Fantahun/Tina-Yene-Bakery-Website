@@ -1,0 +1,178 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url = env("DATA_BASE_URL")
+  shadowDatabaseUrl = env("SHADOW_DATA_BASE_URL")
+
+}
+
+enum FulfillmentMethod {
+  pickup
+  delivery
+}
+
+enum OrderStatus {
+  pending
+  in_preparation
+  ready_for_pickup
+  completed
+  cancelled
+}
+
+enum PaymentStatus {
+  pending
+  paid
+  failed
+  refunded
+}
+
+model Category {
+  id          Int       @id @default(autoincrement())
+  name        String
+  slug        String    @unique
+  description String?
+  imageUrl    String?
+  sortOrder   Int       @default(0)
+  isActive    Boolean   @default(true)
+  createdBy   String?
+  createdAt   DateTime  @default(now())
+  updatedBy   String?
+  updatedAt   DateTime  @updatedAt
+  products    Product[]
+}
+
+model Product {
+  id               Int         @id @default(autoincrement())
+  categoryId       Int
+  name             String
+  slug             String      @unique
+  description      String?
+  price            Decimal     @db.Decimal(10, 2)
+  imageUrl         String?
+  prepLeadTimeDays Int         @default(0)
+  pickupAllowed    Boolean     @default(true)
+  deliveryAllowed  Boolean     @default(true)
+  isActive         Boolean     @default(true)
+  sortOrder        Int         @default(0)
+  createdBy        String?
+  createdAt        DateTime    @default(now())
+  updatedBy        String?
+  updatedAt        DateTime    @updatedAt
+  category         Category    @relation(fields: [categoryId], references: [id])
+  orderItems       OrderItem[]
+
+  @@index([categoryId])
+}
+
+model PickupLocation {
+  id        Int      @id @default(autoincrement())
+  name      String
+  address   String
+  isActive  Boolean  @default(true)
+  createdBy String?
+  createdAt DateTime @default(now())
+  updatedBy String?
+  updatedAt DateTime @updatedAt
+  orders    Order[]
+}
+
+model SiteSetting {
+  id               Int      @id @default(autoincrement())
+  cutoffTime       String?
+  deliveryFee      Decimal  @db.Decimal(10, 2)
+  minOrderDelivery Decimal  @db.Decimal(10, 2)
+  storePhone       String
+  storeEmail       String
+  createdBy        String?
+  createdAt        DateTime @default(now())
+  updatedBy        String?
+  updatedAt        DateTime @updatedAt
+}
+
+model Order {
+  id                 String            @id @default(uuid())
+  confirmationNumber String            @unique
+  customerName       String
+  customerEmail      String
+  customerPhone      String
+  businessName       String?
+  fulfillmentMethod  FulfillmentMethod
+  fulfillmentDate    DateTime
+  pickupLocationId   Int?
+  deliveryAddress    String?
+  subtotal           Decimal           @db.Decimal(10, 2)
+  deliveryFee        Decimal           @db.Decimal(10, 2)
+  total              Decimal           @db.Decimal(10, 2)
+  orderNotes         String?
+  orderStatus        OrderStatus       @default(pending)
+  paymentStatus      PaymentStatus     @default(pending)
+  createdBy          String?
+  createdAt          DateTime          @default(now())
+  updatedBy          String?
+  updatedAt          DateTime          @updatedAt
+  pickupLocation     PickupLocation?   @relation(fields: [pickupLocationId], references: [id])
+  items              OrderItem[]
+
+  @@index([pickupLocationId])
+  @@index([orderStatus])
+  @@index([paymentStatus])
+}
+
+model OrderItem {
+  id          String @id @default(uuid())
+  orderId     String
+  productId   Int?
+  productName String
+  quantity    Int
+  unitPrice   Decimal  @db.Decimal(10, 2)
+  lineTotal   Decimal  @db.Decimal(10, 2)
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product? @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+model AdminUser {
+  id           String              @id @default(uuid())
+  username     String              @unique
+  fullName     String?
+  passwordHash String
+  role         String              @default("admin")
+  isActive     Boolean             @default(true)
+  phoneNumber  String?
+  email        String?
+  failedLoginAttempts Int          @default(0)
+  lastFailedLoginAt DateTime?
+  lastLoginAt  DateTime?
+  createdBy    String?
+  createdAt    DateTime            @default(now())
+  updatedBy    String?
+  updatedAt    DateTime            @updatedAt
+  logins       AdminLoginHistory[]
+}
+
+model AdminLoginHistory {
+  id          String    @id @default(uuid())
+  adminUserId String
+  status      String
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime  @default(now())
+  adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
+
+  @@index([adminUserId])
+}

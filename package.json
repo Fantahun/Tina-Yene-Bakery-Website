@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
+    "@prisma/client": "5.22.0",
+    "@prisma/config": "^7.4.1",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
     "@radix-ui/react-aspect-ratio": "1.1.1",
@@ -41,17 +43,19 @@
     "@stripe/react-stripe-js": "^3.1.0",
     "@stripe/stripe-js": "^5.3.0",
     "autoprefixer": "^10.4.20",
+    "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
-    "date-fns": "4.1.0",
+    "date-fns": "3",
     "embla-carousel-react": "8.5.1",
     "input-otp": "1.4.1",
     "lucide-react": "^0.544.0",
     "next": "16.1.6",
+    "next-auth": "^4.24.13",
     "next-themes": "^0.4.6",
     "react": "19.2.3",
-    "react-day-picker": "8.10.1",
+    "react-day-picker": "9.13.2",
     "react-dom": "19.2.3",
     "react-hook-form": "^7.54.1",
     "react-redux": "^9.2.0",
@@ -72,13 +76,19 @@
     "@types/react": "19.2.7",
     "@types/react-dom": "19.2.3",
     "postcss": "^8.5",
+    "prisma": "5.22.0",
     "tailwindcss": "^3.4.17",
     "typescript": "5.7.3"
   },
   "pnpm": {
     "overrides": {
       "@types/react": "19.2.7",
-      "@types/react-dom": "19.2.3"
-    }
+      "@types/react-dom": "19.2.3",
+      "zeptomatch": "1.2.0",
+      "@prisma/dev": "npm:prisma@7.4.1"
+    },
+    "ignoredBuiltDependencies": [
+      "bcrypt"
+    ]
   }
 }

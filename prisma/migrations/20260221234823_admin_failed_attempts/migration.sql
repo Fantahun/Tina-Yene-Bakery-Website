@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE `AdminUser` ADD COLUMN `failedLoginAttempts` INTEGER NOT NULL DEFAULT 0;
