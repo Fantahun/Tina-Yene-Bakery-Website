@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { Suspense, useState } from "react"
 import { useRouter, useSearchParams } from "next/navigation"
 import { signIn } from "next-auth/react"
 import { Lock, LogIn } from "lucide-react"
@@ -12,6 +12,14 @@ import { Label } from "@/components/ui/label"
 import { toast } from "sonner"
 
 export default function AdminLoginPage() {
+  return (
+    <Suspense fallback={null}>
+      <LoginForm />
+    </Suspense>
+  )
+}
+
+function LoginForm() {
   const router = useRouter()
   const params = useSearchParams()
   const [username, setUsername] = useState("")
@@ -101,4 +109,3 @@ export default function AdminLoginPage() {
     </div>
   )
 }
-
