@@ -1,7 +1,7 @@
 "use client"
 
-import { useState } from "react"
-import { Clock, DollarSign, MapPin, Plus, Save, Trash2 } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Edit, Clock, DollarSign, MapPin, Plus, Save, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,36 +9,171 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Switch } from "@/components/ui/switch"
-import { pickupLocations, siteSettings } from "@/lib/mock-data"
+import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { EditOrderStatusDialog } from "@/components/admin/edit-order-status-dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { type PickupLocation, type OrderStatusEntry } from "@/lib/mock-data"
 import { toast } from "sonner"
 
 export default function AdminSettingsPage() {
-  const [isSaving, setIsSaving] = useState(false)
+  const [isSavingSettings, setIsSavingSettings] = useState(false)
+  const [isSavingLocations, setIsSavingLocations] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
+  const [settingsError, setSettingsError] = useState<string | null>(null)
+  const [locationsError, setLocationsError] = useState<string | null>(null)
+  const [confirmSettingsOpen, setConfirmSettingsOpen] = useState(false)
+  const [confirmLocationsOpen, setConfirmLocationsOpen] = useState(false)
+  const [locationToDelete, setLocationToDelete] = useState<PickupLocation | null>(null)
+  const [statusToDelete, setStatusToDelete] = useState<OrderStatusEntry | null>(null)
+  const [selectedStatus, setSelectedStatus] = useState<OrderStatusEntry | null>(null)
+  const [isAddingStatus, setIsAddingStatus] = useState(false)
+  const [statusesError, setStatusesError] = useState<string | null>(null)
+
   const [settings, setSettings] = useState({
-    cutoff_time: siteSettings.cutoff_time,
-    delivery_fee: siteSettings.delivery_fee,
-    min_order_delivery: siteSettings.min_order_delivery,
-    store_phone: siteSettings.store_phone,
-    store_email: siteSettings.store_email,
+    cutoff_time: "",
+    delivery_fee: 0,
+    min_order_delivery: 0,
+    store_phone: "",
+    store_email: "",
+    dashboard_pending_status_id: null as number | null,
+    dashboard_in_progress_status_id: null as number | null,
+    dashboard_ready_status_id: null as number | null,
   })
 
-  const [locations, setLocations] = useState(pickupLocations)
+  const [locations, setLocations] = useState<PickupLocation[]>([])
+  const [orderStatuses, setOrderStatuses] = useState<OrderStatusEntry[]>([])
+
+  const loadSettings = async () => {
+    setIsLoading(true)
+    setSettingsError(null)
+    try {
+      const res = await fetch("/api/admin/settings")
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || "Failed to load settings")
+      }
+      const data = await res.json()
+      setSettings(data)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load settings"
+      setSettingsError(message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadLocations = async () => {
+    setIsLoading(true)
+    setLocationsError(null)
+    try {
+      const res = await fetch("/api/admin/pickup-locations")
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || "Failed to load locations")
+      }
+      const data = (await res.json()) as PickupLocation[]
+      setLocations(data)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load locations"
+      setLocationsError(message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const loadOrderStatuses = async () => {
+    setIsLoading(true)
+    setStatusesError(null)
+    try {
+      const res = await fetch("/api/admin/order-statuses")
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || "Failed to load order statuses")
+      }
+      const data = (await res.json()) as OrderStatusEntry[]
+      setOrderStatuses(data)
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to load order statuses"
+      setStatusesError(message)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    loadSettings()
+    loadLocations()
+    loadOrderStatuses()
+  }, [])
 
   const handleSaveSettings = async () => {
-    setIsSaving(true)
+    setIsSavingSettings(true)
     try {
-      await new Promise((resolve) => setTimeout(resolve, 500))
+      const res = await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(settings),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || "Failed to save settings")
+      }
+
+      const data = await res.json()
+      setSettings(data)
       toast.success("Settings saved successfully")
     } catch (error) {
-      toast.error("Failed to save settings")
+      const message = error instanceof Error ? error.message : "Failed to save settings"
+      toast.error(message)
     } finally {
-      setIsSaving(false)
+      setIsSavingSettings(false)
+      setConfirmSettingsOpen(false)
+    }
+  }
+
+  const handleSaveLocations = async () => {
+    setIsSavingLocations(true)
+    try {
+      for (const location of locations) {
+        const isNew = !Number.isFinite(location.id) || location.id <= 0
+        const endpoint = "/api/admin/pickup-locations"
+        const method = isNew ? "POST" : "PUT"
+        const payload = {
+          id: isNew ? undefined : location.id,
+          name: location.name,
+          address: location.address,
+          is_active: location.is_active,
+        }
+
+        const res = await fetch(endpoint, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        })
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => null)
+          throw new Error(data?.error || "Failed to save locations")
+        }
+      }
+
+      await loadLocations()
+      toast.success("Locations saved successfully")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to save locations"
+      toast.error(message)
+    } finally {
+      setIsSavingLocations(false)
+      setConfirmLocationsOpen(false)
     }
   }
 
   const handleAddLocation = () => {
+    const tempId = Math.min(0, ...locations.map((l) => l.id ?? 0)) - 1
     const newLocation = {
-      id: Math.max(...locations.map((l) => l.id)) + 1,
+      id: tempId,
       name: "New Location",
       address: "Enter address",
       is_active: true,
@@ -46,9 +181,56 @@ export default function AdminSettingsPage() {
     setLocations([...locations, newLocation])
   }
 
-  const handleRemoveLocation = (id: number) => {
-    setLocations(locations.filter((l) => l.id !== id))
-    toast.success("Location removed")
+  const handleRemoveLocation = (location: PickupLocation) => {
+    if (location.id <= 0) {
+      setLocations(locations.filter((l) => l.id !== location.id))
+      return
+    }
+    setLocationToDelete(location)
+  }
+
+  const confirmDeleteLocation = async () => {
+    if (!locationToDelete) return
+    try {
+      const res = await fetch("/api/admin/pickup-locations", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: locationToDelete.id }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || "Failed to delete location")
+      }
+      setLocationToDelete(null)
+      await loadLocations()
+      toast.success("Location removed")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete location"
+      toast.error(message)
+    }
+  }
+
+  const confirmDeleteStatus = async () => {
+    if (!statusToDelete) return
+    try {
+      const res = await fetch("/api/admin/order-statuses", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: statusToDelete.id }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || "Failed to delete status")
+      }
+      setStatusToDelete(null)
+      await loadOrderStatuses()
+      toast.success("Status removed")
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to delete status"
+      toast.error(message)
+    }
   }
 
   return (
@@ -65,6 +247,11 @@ export default function AdminSettingsPage() {
             <CardDescription>Configure cutoff times and delivery options</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6">
+            {settingsError ? (
+              <div className="rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                {settingsError}
+              </div>
+            ) : null}
             <div className="grid gap-6 sm:grid-cols-2">
               <div className="space-y-2">
                 <Label htmlFor="cutoff_time" className="flex items-center gap-2">
@@ -138,9 +325,9 @@ export default function AdminSettingsPage() {
             </div>
 
             <div className="flex justify-end">
-              <Button onClick={handleSaveSettings} disabled={isSaving} className="gap-2">
+              <Button onClick={() => setConfirmSettingsOpen(true)} disabled={isSavingSettings} className="gap-2">
                 <Save className="h-4 w-4" />
-                {isSaving ? "Saving..." : "Save Settings"}
+                {isSavingSettings ? "Saving..." : "Save Settings"}
               </Button>
             </div>
           </CardContent>
@@ -163,6 +350,11 @@ export default function AdminSettingsPage() {
             </div>
           </CardHeader>
           <CardContent>
+            {locationsError ? (
+              <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                {locationsError}
+              </div>
+            ) : null}
             <div className="space-y-4">
               {locations.map((location, index) => (
                 <div key={location.id} className="flex items-start gap-4 rounded-lg border border-border p-4">
@@ -209,7 +401,7 @@ export default function AdminSettingsPage() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => handleRemoveLocation(location.id)}
+                    onClick={() => handleRemoveLocation(location)}
                     className="text-destructive hover:text-destructive"
                   >
                     <Trash2 className="h-4 w-4" />
@@ -218,9 +410,9 @@ export default function AdminSettingsPage() {
               ))}
             </div>
             <div className="mt-4 flex justify-end">
-              <Button onClick={handleSaveSettings} disabled={isSaving} className="gap-2">
+              <Button onClick={() => setConfirmLocationsOpen(true)} disabled={isSavingLocations} className="gap-2">
                 <Save className="h-4 w-4" />
-                {isSaving ? "Saving..." : "Save Locations"}
+                {isSavingLocations ? "Saving..." : "Save Locations"}
               </Button>
             </div>
           </CardContent>
@@ -228,23 +420,207 @@ export default function AdminSettingsPage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Notification Settings</CardTitle>
-            <CardDescription>
-              Configure email and SMS notifications (requires Twilio/SendGrid setup)
-            </CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Order Statuses</CardTitle>
+                <CardDescription>Manage admin order status labels</CardDescription>
+              </div>
+              <Button onClick={() => setIsAddingStatus(true)} size="sm" className="gap-2">
+                <Plus className="h-4 w-4" />
+                Add Status
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {statusesError ? (
+              <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
+                {statusesError}
+              </div>
+            ) : null}
+            {orderStatuses.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-10 text-center">
+                <p className="text-sm text-muted-foreground">No order statuses found</p>
+              </div>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Status Name</TableHead>
+                    <TableHead>Description</TableHead>
+                    <TableHead className="text-center">Sort</TableHead>
+                    <TableHead className="text-center">Active</TableHead>
+                    <TableHead className="text-right">Actions</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {orderStatuses.map((status) => (
+                    <TableRow key={status.id}>
+                      <TableCell className="font-medium">{status.name}</TableCell>
+                      <TableCell className="text-muted-foreground">
+                        {status.description || "No description"}
+                      </TableCell>
+                      <TableCell className="text-center">{status.sort_order}</TableCell>
+                      <TableCell className="text-center">
+                        <Switch checked={status.is_active} disabled />
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex items-center justify-end gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => setSelectedStatus(status)}>
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => setStatusToDelete(status)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Dashboard Cards</CardTitle>
+            <CardDescription>Select which statuses power the dashboard cards</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg bg-muted p-4">
-              <p className="text-sm text-muted-foreground">To enable automated SMS and email notifications:</p>
-              <ul className="mt-2 list-inside list-disc space-y-1 text-sm text-muted-foreground">
-                <li>We will configure Twilio credentials for SMS</li>
-                <li>We will Configure SendGrid or similar for email</li>
-                <li>We will Set up webhook handlers for order status updates</li>
-              </ul>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="dashboard_pending_status">Pending Card</Label>
+                <Select
+                  value={settings.dashboard_pending_status_id ? String(settings.dashboard_pending_status_id) : ""}
+                  onValueChange={(value) =>
+                    setSettings({
+                      ...settings,
+                      dashboard_pending_status_id: value ? Number(value) : null,
+                    })
+                  }
+                >
+                  <SelectTrigger id="dashboard_pending_status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {orderStatuses.map((status) => (
+                      <SelectItem key={status.id} value={String(status.id)}>
+                        {status.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dashboard_in_progress_status">In Progress Card</Label>
+                <Select
+                  value={settings.dashboard_in_progress_status_id ? String(settings.dashboard_in_progress_status_id) : ""}
+                  onValueChange={(value) =>
+                    setSettings({
+                      ...settings,
+                      dashboard_in_progress_status_id: value ? Number(value) : null,
+                    })
+                  }
+                >
+                  <SelectTrigger id="dashboard_in_progress_status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {orderStatuses.map((status) => (
+                      <SelectItem key={status.id} value={String(status.id)}>
+                        {status.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="dashboard_ready_status">Ready Card</Label>
+                <Select
+                  value={settings.dashboard_ready_status_id ? String(settings.dashboard_ready_status_id) : ""}
+                  onValueChange={(value) =>
+                    setSettings({
+                      ...settings,
+                      dashboard_ready_status_id: value ? Number(value) : null,
+                    })
+                  }
+                >
+                  <SelectTrigger id="dashboard_ready_status">
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {orderStatuses.map((status) => (
+                      <SelectItem key={status.id} value={String(status.id)}>
+                        {status.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button onClick={() => setConfirmSettingsOpen(true)} disabled={isSavingSettings} className="gap-2">
+                <Save className="h-4 w-4" />
+                {isSavingSettings ? "Saving..." : "Save Dashboard Cards"}
+              </Button>
             </div>
           </CardContent>
         </Card>
       </div>
+
+      <ConfirmDialog
+        open={confirmSettingsOpen}
+        onOpenChange={setConfirmSettingsOpen}
+        title="Save settings?"
+        description="This will update your bakery settings."
+        confirmText="Save"
+        onConfirm={handleSaveSettings}
+      />
+
+      <ConfirmDialog
+        open={confirmLocationsOpen}
+        onOpenChange={setConfirmLocationsOpen}
+        title="Save pickup locations?"
+        description="This will update your pickup locations."
+        confirmText="Save"
+        onConfirm={handleSaveLocations}
+      />
+
+      <ConfirmDialog
+        open={!!locationToDelete}
+        onOpenChange={(open) => {
+          if (!open) setLocationToDelete(null)
+        }}
+        title="Delete location?"
+        description="This will remove the pickup location from the list."
+        confirmText="Delete"
+        onConfirm={confirmDeleteLocation}
+      />
+
+      {(selectedStatus || isAddingStatus) && (
+        <EditOrderStatusDialog
+          status={selectedStatus}
+          open={!!(selectedStatus || isAddingStatus)}
+          onOpenChange={(open) => {
+            if (!open) {
+              setSelectedStatus(null)
+              setIsAddingStatus(false)
+            }
+          }}
+          onSaved={loadOrderStatuses}
+        />
+      )}
+
+      <ConfirmDialog
+        open={!!statusToDelete}
+        onOpenChange={(open) => {
+          if (!open) setStatusToDelete(null)
+        }}
+        title="Delete status?"
+        description="This will remove the order status from the list."
+        confirmText="Delete"
+        onConfirm={confirmDeleteStatus}
+      />
     </div>
   )
 }

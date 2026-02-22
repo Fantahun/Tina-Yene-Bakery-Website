@@ -13,6 +13,7 @@ import {
   LogOut,
   ChevronRight,
   X,
+  BarChart3,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,8 @@ const navItems = [
   { href: "/yeneAdmin", label: "Dashboard", icon: Home, exact: true },
   { href: "/yeneAdmin/orders", label: "Orders", icon: ShoppingBag },
   { href: "/yeneAdmin/products", label: "Products", icon: Package },
+  { href: "/yeneAdmin/categories", label: "Categories", icon: Menu },
+  { href: "/yeneAdmin/reports", label: "Reports", icon: BarChart3 },
   { href: "/yeneAdmin/settings", label: "Settings", icon: Settings },
 ];
 

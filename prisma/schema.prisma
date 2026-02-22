@@ -9,23 +9,14 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
-  url = env("DATA_BASE_URL")
+  provider          = "mysql"
+  url               = env("DATA_BASE_URL")
   shadowDatabaseUrl = env("SHADOW_DATA_BASE_URL")
-
 }
 
 enum FulfillmentMethod {
   pickup
   delivery
-}
-
-enum OrderStatus {
-  pending
-  in_preparation
-  ready_for_pickup
-  completed
-  cancelled
 }
 
 enum PaymentStatus {
@@ -43,6 +34,7 @@ model Category {
   imageUrl    String?
   sortOrder   Int       @default(0)
   isActive    Boolean   @default(true)
+  deletedAt   DateTime?
   createdBy   String?
   createdAt   DateTime  @default(now())
   updatedBy   String?
@@ -63,6 +55,7 @@ model Product {
   deliveryAllowed  Boolean     @default(true)
   isActive         Boolean     @default(true)
   sortOrder        Int         @default(0)
+  deletedAt        DateTime?
   createdBy        String?
   createdAt        DateTime    @default(now())
   updatedBy        String?
@@ -74,14 +67,15 @@ model Product {
 }
 
 model PickupLocation {
-  id        Int      @id @default(autoincrement())
+  id        Int       @id @default(autoincrement())
   name      String
   address   String
-  isActive  Boolean  @default(true)
+  isActive  Boolean   @default(true)
+  deletedAt DateTime?
   createdBy String?
-  createdAt DateTime @default(now())
+  createdAt DateTime  @default(now())
   updatedBy String?
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime  @updatedAt
   orders    Order[]
 }
 
@@ -92,10 +86,33 @@ model SiteSetting {
   minOrderDelivery Decimal  @db.Decimal(10, 2)
   storePhone       String
   storeEmail       String
+  dashboardPendingStatusId     Int?
+  dashboardInProgressStatusId  Int?
+  dashboardReadyStatusId       Int?
+  dashboardPendingStatus       OrderStatusEntry? @relation("DashboardPendingStatus", fields: [dashboardPendingStatusId], references: [id])
+  dashboardInProgressStatus    OrderStatusEntry? @relation("DashboardInProgressStatus", fields: [dashboardInProgressStatusId], references: [id])
+  dashboardReadyStatus         OrderStatusEntry? @relation("DashboardReadyStatus", fields: [dashboardReadyStatusId], references: [id])
   createdBy        String?
   createdAt        DateTime @default(now())
   updatedBy        String?
   updatedAt        DateTime @updatedAt
+}
+
+model OrderStatusEntry {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  description String?
+  sortOrder   Int      @default(0)
+  isActive    Boolean  @default(true)
+  deletedAt   DateTime?
+  dashboardPendingFor    SiteSetting[] @relation("DashboardPendingStatus")
+  dashboardInProgressFor SiteSetting[] @relation("DashboardInProgressStatus")
+  dashboardReadyFor      SiteSetting[] @relation("DashboardReadyStatus")
+  createdBy   String?
+  createdAt   DateTime @default(now())
+  updatedBy   String?
+  updatedAt   DateTime @updatedAt
+  orders      Order[]
 }
 
 model Order {
@@ -113,22 +130,23 @@ model Order {
   deliveryFee        Decimal           @db.Decimal(10, 2)
   total              Decimal           @db.Decimal(10, 2)
   orderNotes         String?
-  orderStatus        OrderStatus       @default(pending)
+  orderStatusId      Int
   paymentStatus      PaymentStatus     @default(pending)
   createdBy          String?
   createdAt          DateTime          @default(now())
   updatedBy          String?
   updatedAt          DateTime          @updatedAt
   pickupLocation     PickupLocation?   @relation(fields: [pickupLocationId], references: [id])
+  orderStatus        OrderStatusEntry  @relation(fields: [orderStatusId], references: [id])
   items              OrderItem[]
 
   @@index([pickupLocationId])
-  @@index([orderStatus])
+  @@index([orderStatusId])
   @@index([paymentStatus])
 }
 
 model OrderItem {
-  id          String @id @default(uuid())
+  id          String   @id @default(uuid())
   orderId     String
   productId   Int?
   productName String
@@ -147,22 +165,22 @@ model OrderItem {
 }
 
 model AdminUser {
-  id           String              @id @default(uuid())
-  username     String              @unique
-  fullName     String?
-  passwordHash String
-  role         String              @default("admin")
-  isActive     Boolean             @default(true)
-  phoneNumber  String?
-  email        String?
-  failedLoginAttempts Int          @default(0)
-  lastFailedLoginAt DateTime?
-  lastLoginAt  DateTime?
-  createdBy    String?
-  createdAt    DateTime            @default(now())
-  updatedBy    String?
-  updatedAt    DateTime            @updatedAt
-  logins       AdminLoginHistory[]
+  id                  String              @id @default(uuid())
+  username            String              @unique
+  fullName            String?
+  passwordHash        String
+  role                String              @default("admin")
+  isActive            Boolean             @default(true)
+  phoneNumber         String?
+  email               String?
+  failedLoginAttempts Int                 @default(0)
+  lastFailedLoginAt   DateTime?
+  lastLoginAt         DateTime?
+  createdBy           String?
+  createdAt           DateTime            @default(now())
+  updatedBy           String?
+  updatedAt           DateTime            @updatedAt
+  logins              AdminLoginHistory[]
 }
 
 model AdminLoginHistory {

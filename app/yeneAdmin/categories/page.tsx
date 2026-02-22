@@ -1,9 +1,9 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Edit, Package, Plus, Search, Trash2 } from "lucide-react"
+import { Edit, FolderOpen, Plus, Search, Trash2 } from "lucide-react"
 
-import { EditProductDialog } from "@/components/admin/edit-product-dialog"
+import { EditCategoryDialog } from "@/components/admin/edit-category-dialog"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -11,31 +11,31 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Switch } from "@/components/ui/switch"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { type Product } from "@/lib/mock-data"
+import { type Category } from "@/lib/mock-data"
 
-export default function AdminProductsPage() {
+export default function AdminCategoriesPage() {
   const [searchQuery, setSearchQuery] = useState("")
-  const [products, setProducts] = useState<Product[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null)
-  const [productToDelete, setProductToDelete] = useState<Product | null>(null)
+  const [categories, setCategories] = useState<Category[]>([])
+  const [selectedCategory, setSelectedCategory] = useState<Category | null>(null)
+  const [categoryToDelete, setCategoryToDelete] = useState<Category | null>(null)
   const [isAddingNew, setIsAddingNew] = useState(false)
+  const [isLoading, setIsLoading] = useState(false)
   const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const loadProducts = async () => {
+  const loadCategories = async () => {
     setIsLoading(true)
     setErrorMessage(null)
     try {
-      const res = await fetch("/api/admin/products")
+      const res = await fetch("/api/admin/categories")
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to load products")
+        throw new Error(data?.error || "Failed to load categories")
       }
-      const data = (await res.json()) as Product[]
-      setProducts(data)
+      const data = (await res.json()) as Category[]
+      setCategories(data)
     } catch (error) {
-      setProducts([])
-      const message = error instanceof Error ? error.message : "Failed to load products"
+      setCategories([])
+      const message = error instanceof Error ? error.message : "Failed to load categories"
       setErrorMessage(message)
     } finally {
       setIsLoading(false)
@@ -43,59 +43,57 @@ export default function AdminProductsPage() {
   }
 
   const handleDelete = async () => {
-    if (!productToDelete) return
+    if (!categoryToDelete) return
     try {
-      const res = await fetch("/api/admin/products", {
+      const res = await fetch("/api/admin/categories", {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ id: productToDelete.id }),
+        body: JSON.stringify({ id: categoryToDelete.id }),
       })
 
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to delete product")
+        throw new Error(data?.error || "Failed to delete category")
       }
-      setProductToDelete(null)
-      await loadProducts()
+      setCategoryToDelete(null)
+      await loadCategories()
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to delete product"
+      const message = error instanceof Error ? error.message : "Failed to delete category"
       setErrorMessage(message)
     }
   }
 
   useEffect(() => {
-    loadProducts()
+    loadCategories()
   }, [])
 
-  const filteredProducts = products.filter(
-    (product) =>
-      product.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      product.category?.toLowerCase().includes(searchQuery.toLowerCase()),
+  const filteredCategories = categories.filter((category) =>
+    category.name.toLowerCase().includes(searchQuery.toLowerCase()),
   )
 
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Products</h1>
-          <p className="mt-1 text-muted-foreground">Manage your bakery products and inventory</p>
+          <h1 className="text-3xl font-bold text-foreground">Categories</h1>
+          <p className="mt-1 text-muted-foreground">Manage your product categories</p>
         </div>
         <Button onClick={() => setIsAddingNew(true)} className="gap-2">
           <Plus className="h-4 w-4" />
-          Add Product
+          Add Category
         </Button>
       </div>
 
       <Card className="mb-6">
         <CardHeader>
-          <CardTitle className="text-lg">Search Products</CardTitle>
-          <CardDescription>Find products by name or category</CardDescription>
+          <CardTitle className="text-lg">Search Categories</CardTitle>
+          <CardDescription>Find categories by name</CardDescription>
         </CardHeader>
         <CardContent>
           <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search products..."
+              placeholder="Search categories..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-10"
@@ -108,76 +106,62 @@ export default function AdminProductsPage() {
         <CardContent className="p-0">
           {errorMessage ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Package className="h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-medium text-foreground">Unable to load products</h3>
+              <FolderOpen className="h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-medium text-foreground">Unable to load categories</h3>
               <p className="mt-2 text-sm text-muted-foreground">{errorMessage}</p>
             </div>
           ) : isLoading ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Package className="h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-medium text-foreground">Loading products</h3>
+              <FolderOpen className="h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-medium text-foreground">Loading categories</h3>
               <p className="mt-2 text-sm text-muted-foreground">Please wait</p>
             </div>
-          ) : filteredProducts.length === 0 ? (
+          ) : filteredCategories.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
-              <Package className="h-12 w-12 text-muted-foreground" />
-              <h3 className="mt-4 text-lg font-medium text-foreground">No products found</h3>
+              <FolderOpen className="h-12 w-12 text-muted-foreground" />
+              <h3 className="mt-4 text-lg font-medium text-foreground">No categories found</h3>
               <p className="mt-2 text-sm text-muted-foreground">Try adjusting your search</p>
             </div>
           ) : (
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Product</TableHead>
                   <TableHead>Category</TableHead>
-                  <TableHead>Price</TableHead>
-                  <TableHead className="text-center">Lead Time</TableHead>
-                  <TableHead className="text-center">Pickup</TableHead>
-                  <TableHead className="text-center">Delivery</TableHead>
+                  <TableHead>Slug</TableHead>
+                  <TableHead>Order</TableHead>
                   <TableHead className="text-center">Active</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredProducts.map((product) => (
-                  <TableRow key={product.id}>
+                {filteredCategories.map((category) => (
+                  <TableRow key={category.id}>
                     <TableCell>
                       <div className="flex items-center gap-3">
                         <div className="flex h-10 w-10 items-center justify-center rounded-md bg-primary/10">
-                          <Package className="h-5 w-5 text-primary" />
+                          <FolderOpen className="h-5 w-5 text-primary" />
                         </div>
                         <div>
-                          <p className="font-medium text-foreground">{product.name}</p>
+                          <p className="font-medium text-foreground">{category.name}</p>
                           <p className="text-xs text-muted-foreground line-clamp-1">
-                            {product.description.substring(0, 50)}...
+                            {category.description?.substring(0, 50) || "No description"}
                           </p>
                         </div>
                       </div>
                     </TableCell>
                     <TableCell>
-                      <Badge variant="outline">{product.category}</Badge>
+                      <Badge variant="outline">{category.slug}</Badge>
                     </TableCell>
-                    <TableCell className="font-medium">${product.price.toFixed(2)}</TableCell>
+                    <TableCell className="font-medium">{category.sort_order}</TableCell>
                     <TableCell className="text-center">
-                      <Badge variant={product.prep_lead_time_days === 0 ? "default" : "secondary"}>
-                        {product.prep_lead_time_days} {product.prep_lead_time_days === 1 ? "day" : "days"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Switch checked={product.pickup_allowed} disabled />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Switch checked={product.delivery_allowed} disabled />
-                    </TableCell>
-                    <TableCell className="text-center">
-                      <Switch checked={product.is_active} disabled />
+                      <Switch checked={category.is_active} disabled />
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex items-center justify-end gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => setSelectedProduct(product)}>
+                        <Button variant="ghost" size="icon" onClick={() => setSelectedCategory(category)}>
                           <Edit className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => setProductToDelete(product)}>
+                        <Button variant="ghost" size="icon" onClick={() => setCategoryToDelete(category)}>
                           <Trash2 className="h-4 w-4 text-destructive" />
                         </Button>
                       </div>
@@ -190,30 +174,31 @@ export default function AdminProductsPage() {
         </CardContent>
       </Card>
 
-      {(selectedProduct || isAddingNew) && (
-        <EditProductDialog
-          product={selectedProduct}
-          open={!!(selectedProduct || isAddingNew)}
+      {(selectedCategory || isAddingNew) && (
+        <EditCategoryDialog
+          category={selectedCategory}
+          open={!!(selectedCategory || isAddingNew)}
           onOpenChange={(open) => {
             if (!open) {
-              setSelectedProduct(null)
+              setSelectedCategory(null)
               setIsAddingNew(false)
             }
           }}
-          onSaved={loadProducts}
+          onSaved={loadCategories}
         />
       )}
 
       <ConfirmDialog
-        open={!!productToDelete}
+        open={!!categoryToDelete}
         onOpenChange={(open) => {
-          if (!open) setProductToDelete(null)
+          if (!open) setCategoryToDelete(null)
         }}
-        title="Delete product?"
-        description="This will remove the product from the admin list."
+        title="Delete category?"
+        description="This will remove the category from the admin list."
         confirmText="Delete"
         onConfirm={handleDelete}
       />
     </div>
   )
 }
+

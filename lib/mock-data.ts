@@ -31,6 +31,14 @@ export interface PickupLocation {
   is_active: boolean
 }
 
+export interface OrderStatusEntry {
+  id: number
+  name: string
+  description?: string
+  sort_order: number
+  is_active: boolean
+}
+
 export const categories: Category[] = [
   {
     id: 1,
@@ -276,12 +284,7 @@ export const siteSettings = {
   store_email: "hello@YeneBakery.com",
 }
 
-export type OrderStatus =
-  | "pending"
-  | "in_preparation"
-  | "ready_for_pickup"
-  | "completed"
-  | "cancelled"
+export type OrderStatus = string
 
 export type PaymentStatus = "pending" | "paid" | "failed" | "refunded"
 
@@ -301,6 +304,7 @@ export interface Order {
   total: number
   order_notes?: string
   order_status: OrderStatus
+  order_status_id?: number
   payment_status: PaymentStatus
   created_at: string
   items: Array<{

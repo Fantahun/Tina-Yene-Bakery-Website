@@ -1,8 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Calendar, MapPin, Truck, Phone, Mail, Package, Building2, MessageSquare, Send } from "lucide-react"
-import { type Order, type OrderStatus } from "@/lib/mock-data"
+import { type Order, type OrderStatusEntry } from "@/lib/mock-data"
 import {
   Dialog,
   DialogContent,
@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/select"
 import { toast } from "sonner"
 
-const statusColors: Record<OrderStatus, string> = {
+const statusColors: Record<string, string> = {
   pending: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200",
   in_preparation: "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200",
   ready_for_pickup: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
@@ -30,34 +30,68 @@ const statusColors: Record<OrderStatus, string> = {
   cancelled: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 }
 
+function normalizeStatus(value: string) {
+  return value.toLowerCase().replace(/\s+/g, "_")
+}
+
+function getStatusClass(name: string) {
+  return statusColors[normalizeStatus(name)] ?? "bg-muted text-foreground"
+}
+
 interface OrderDetailsDialogProps {
   order: Order
   open: boolean
   onOpenChange: (open: boolean) => void
+  statuses: OrderStatusEntry[]
+  onStatusUpdated?: (updated: Order) => void
 }
 
 export function OrderDetailsDialog({
   order,
   open,
   onOpenChange,
+  statuses,
+  onStatusUpdated,
 }: OrderDetailsDialogProps) {
-  const [orderStatus, setOrderStatus] = useState<OrderStatus>(order.order_status)
+  const [orderStatusId, setOrderStatusId] = useState<number | undefined>(order.order_status_id)
+  const [orderStatusName, setOrderStatusName] = useState(order.order_status)
   const [isUpdating, setIsUpdating] = useState(false)
 
-  const handleStatusUpdate = async (newStatus: OrderStatus) => {
+  useEffect(() => {
+    setOrderStatusId(order.order_status_id)
+    setOrderStatusName(order.order_status)
+  }, [order])
+
+  const statusOptions = useMemo(() => {
+    return statuses.filter((status) => status.is_active)
+  }, [statuses])
+
+  const handleStatusUpdate = async (statusId: number) => {
     setIsUpdating(true)
     try {
-      // In production, this would call an API to update the order status
-      await new Promise((resolve) => setTimeout(resolve, 500))
-      setOrderStatus(newStatus)
-      toast.success(`Order status updated to ${newStatus.replace("_", " ")}`)
-      
-      // Automatically send SMS when marked as ready_for_pickup
-      if (newStatus === "ready_for_pickup") {
+      const res = await fetch("/api/admin/orders", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id: order.id, order_status_id: statusId }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || "Failed to update order status")
+      }
+
+      const updated = (await res.json()) as Order
+      setOrderStatusId(updated.order_status_id)
+      setOrderStatusName(updated.order_status)
+      onStatusUpdated?.(updated)
+      toast.success(`Order status updated to ${updated.order_status}`)
+
+      if (normalizeStatus(updated.order_status) === "ready_for_pickup") {
         await handleSendSMS()
       }
     } catch (error) {
-      toast.error("Failed to update order status")
+      const message = error instanceof Error ? error.message : "Failed to update order status"
+      toast.error(message)
     } finally {
       setIsUpdating(false)
     }
@@ -84,8 +118,8 @@ export function OrderDetailsDialog({
               </DialogTitle>
               <DialogDescription>Order details and management</DialogDescription>
             </div>
-            <Badge className={statusColors[orderStatus]} variant="secondary">
-              {orderStatus.replace("_", " ")}
+            <Badge className={getStatusClass(orderStatusName)} variant="secondary">
+              {orderStatusName}
             </Badge>
           </div>
         </DialogHeader>
@@ -98,22 +132,22 @@ export function OrderDetailsDialog({
             </label>
             <div className="flex gap-2">
               <Select
-                value={orderStatus}
-                onValueChange={(value) => handleStatusUpdate(value as OrderStatus)}
+                value={orderStatusId ? String(orderStatusId) : ""}
+                onValueChange={(value) => handleStatusUpdate(Number(value))}
                 disabled={isUpdating}
               >
                 <SelectTrigger className="flex-1">
-                  <SelectValue />
+                  <SelectValue placeholder="Select a status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="pending">Pending</SelectItem>
-                  <SelectItem value="in_preparation">In Preparation</SelectItem>
-                  <SelectItem value="ready_for_pickup">Ready for Pickup</SelectItem>
-                  <SelectItem value="completed">Completed</SelectItem>
-                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                  {statusOptions.map((status) => (
+                    <SelectItem key={status.id} value={String(status.id)}>
+                      {status.name}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
-              {orderStatus === "ready_for_pickup" && (
+              {normalizeStatus(orderStatusName) === "ready_for_pickup" && (
                 <Button
                   onClick={handleSendSMS}
                   variant="outline"
@@ -125,7 +159,7 @@ export function OrderDetailsDialog({
               )}
             </div>
             <p className="text-xs text-muted-foreground">
-              {orderStatus === "ready_for_pickup" &&
+              {normalizeStatus(orderStatusName) === "ready_for_pickup" &&
                 "SMS will be sent automatically when marked as ready for pickup"}
             </p>
           </div>
