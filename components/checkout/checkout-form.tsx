@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -24,7 +24,6 @@ import {
   selectMaxLeadTime,
   clearCart,
 } from "@/store/cart-slice";
-import { pickupLocations, siteSettings } from "@/lib/mock-data";
 import { getEarliestFulfillmentDate, isDateDisabled } from "@/lib/fulfillment";
 import { checkoutFormSchema, type CheckoutFormValues } from "@/lib/validations";
 import { Button } from "@/components/ui/button";
@@ -47,6 +46,29 @@ import {
 } from "@/components/ui/popover";
 import { cn } from "@/lib/utils";
 
+interface PickupLocationOption {
+  id: number;
+  name: string;
+  address: string;
+  is_active: boolean;
+}
+
+interface SiteSettingsPayload {
+  cutoff_time: string;
+  delivery_fee: number;
+  min_order_delivery: number;
+  store_phone: string;
+  store_email: string;
+}
+
+const defaultSettings: SiteSettingsPayload = {
+  cutoff_time: "11:00",
+  delivery_fee: 0,
+  min_order_delivery: 0,
+  store_phone: "",
+  store_email: "",
+};
+
 export function CheckoutForm() {
   const router = useRouter();
   const dispatch = useAppDispatch();
@@ -54,13 +76,15 @@ export function CheckoutForm() {
   const subtotal = useAppSelector(selectCartSubtotal);
   const maxLeadTime = useAppSelector(selectMaxLeadTime);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [pickupLocations, setPickupLocations] = useState<PickupLocationOption[]>([]);
+  const [siteSettings, setSiteSettings] = useState<SiteSettingsPayload>(defaultSettings);
 
   const allPickupAllowed = items.every((i) => i.pickup_allowed);
   const allDeliveryAllowed = items.every((i) => i.delivery_allowed);
 
   const earliestDate = useMemo(
-    () => getEarliestFulfillmentDate(maxLeadTime),
-    [maxLeadTime],
+    () => getEarliestFulfillmentDate(maxLeadTime, siteSettings.cutoff_time),
+    [maxLeadTime, siteSettings.cutoff_time],
   );
 
   const {
@@ -91,6 +115,41 @@ export function CheckoutForm() {
   const deliveryFee =
     fulfillmentMethod === "delivery" ? siteSettings.delivery_fee : 0;
   const total = subtotal + deliveryFee;
+
+  useEffect(() => {
+    let isMounted = true;
+
+    const loadCheckoutConfig = async () => {
+      try {
+        const [locationsResponse, settingsResponse] = await Promise.all([
+          fetch("/api/pickup-locations", { cache: "no-store" }),
+          fetch("/api/site-settings", { cache: "no-store" }),
+        ]);
+
+        if (!locationsResponse.ok || !settingsResponse.ok) {
+          throw new Error("Failed to load checkout settings");
+        }
+
+        const [locationsData, settingsData] = await Promise.all([
+          locationsResponse.json() as Promise<PickupLocationOption[]>,
+          settingsResponse.json() as Promise<SiteSettingsPayload>,
+        ]);
+
+        if (isMounted) {
+          setPickupLocations(locationsData);
+          setSiteSettings(settingsData);
+        }
+      } catch (error) {
+        console.error(error);
+      }
+    };
+
+    void loadCheckoutConfig();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const onSubmit = async (data: CheckoutFormValues) => {
     setIsSubmitting(true);

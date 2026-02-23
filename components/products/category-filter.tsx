@@ -1,15 +1,16 @@
 "use client"
 
 import { cn } from "@/lib/utils"
-import { categories } from "@/lib/mock-data"
 import { Button } from "@/components/ui/button"
+import type { ShopCategory } from "@/lib/shop-types"
 
 interface CategoryFilterProps {
   selected: string | null
   onSelect: (slug: string | null) => void
+  categories: ShopCategory[]
 }
 
-export function CategoryFilter({ selected, onSelect }: CategoryFilterProps) {
+export function CategoryFilter({ selected, onSelect, categories }: CategoryFilterProps) {
   return (
     <div className="flex flex-wrap gap-2" role="group" aria-label="Filter by category">
       <Button
@@ -18,7 +19,7 @@ export function CategoryFilter({ selected, onSelect }: CategoryFilterProps) {
         onClick={() => onSelect(null)}
         className={cn(
           "rounded-full",
-          selected === null && "shadow-sm"
+          selected === null && "shadow-sm",
         )}
       >
         All
@@ -31,7 +32,7 @@ export function CategoryFilter({ selected, onSelect }: CategoryFilterProps) {
           onClick={() => onSelect(category.slug)}
           className={cn(
             "rounded-full",
-            selected === category.slug && "shadow-sm"
+            selected === category.slug && "shadow-sm",
           )}
         >
           {category.name}

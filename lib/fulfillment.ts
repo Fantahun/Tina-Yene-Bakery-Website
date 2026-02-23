@@ -1,15 +1,15 @@
-import { siteSettings } from "./mock-data"
-
 // Blackout dates (in production these come from the DB)
 const blackoutDates: string[] = []
 
-export function getCutoffTime(): string {
-  return siteSettings.cutoff_time
+const defaultCutoffTime = "11:00"
+
+export function getCutoffTime(cutoffTime?: string): string {
+  return cutoffTime || defaultCutoffTime
 }
 
-export function isPastCutoff(): boolean {
+export function isPastCutoff(cutoffTime?: string): boolean {
   const now = new Date()
-  const [hours, minutes] = getCutoffTime().split(":").map(Number)
+  const [hours, minutes] = getCutoffTime(cutoffTime).split(":").map(Number)
   const cutoff = new Date()
   cutoff.setHours(hours, minutes, 0, 0)
   return now >= cutoff
@@ -24,13 +24,13 @@ export function isSunday(date: Date): boolean {
   return date.getDay() === 0
 }
 
-export function addBusinessDays(startDate: Date, days: number): Date {
+export function addBusinessDays(startDate: Date, days: number, cutoffTime?: string): Date {
   const result = new Date(startDate)
   let added = 0
 
   if (days === 0) {
     // Same-day: check cutoff
-    if (isPastCutoff()) {
+    if (isPastCutoff(cutoffTime)) {
       result.setDate(result.getDate() + 1)
     }
     // Skip Sundays and blackout dates
@@ -50,10 +50,10 @@ export function addBusinessDays(startDate: Date, days: number): Date {
   return result
 }
 
-export function getEarliestFulfillmentDate(maxLeadTimeDays: number): Date {
+export function getEarliestFulfillmentDate(maxLeadTimeDays: number, cutoffTime?: string): Date {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
-  return addBusinessDays(today, maxLeadTimeDays)
+  return addBusinessDays(today, maxLeadTimeDays, cutoffTime)
 }
 
 export function isDateDisabled(date: Date, earliestDate: Date): boolean {

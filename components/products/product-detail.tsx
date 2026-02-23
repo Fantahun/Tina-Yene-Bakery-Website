@@ -5,7 +5,7 @@ import Image from "next/image"
 import Link from "next/link"
 import { ShoppingBag, Minus, Plus, Clock, Truck, Store, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
-import type { Product } from "@/lib/mock-data"
+import type { ShopProduct } from "@/lib/shop-types"
 import { useAppDispatch } from "@/store/hooks"
 import { addToCart } from "@/store/cart-slice"
 import { Button } from "@/components/ui/button"
@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { Separator } from "@/components/ui/separator"
 
 interface ProductDetailProps {
-  product: Product
+  product: ShopProduct
 }
 
 export function ProductDetail({ product }: ProductDetailProps) {
@@ -50,7 +50,7 @@ export function ProductDetail({ product }: ProductDetailProps) {
         {/* Image */}
         <div className="relative aspect-square overflow-hidden rounded-lg border border-border">
           <Image
-            src={product.image_url}
+            src={product.image_url || "/placeholder.jpg"}
             alt={product.name}
             fill
             className="object-cover"

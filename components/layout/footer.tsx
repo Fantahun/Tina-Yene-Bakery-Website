@@ -21,8 +21,7 @@ export function Footer() {
               Yene<span className="text-primary">Bakery</span>
             </span>
             <p className="text-sm leading-relaxed text-muted-foreground">
-              Handcrafted baked goods made with love and the finest ingredients.
-              From our ovens to your table, every bite tells a story.
+              Handcrafted cakes and pastries made with care. From our kitchen to your table, every bite is created to bring joy.
             </p>
           </div>
 

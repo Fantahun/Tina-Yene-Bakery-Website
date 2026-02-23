@@ -131,7 +131,11 @@ function PaymentContent() {
           Complete Your Payment
         </h1>
         <p className="mt-2 text-muted-foreground">
-          Securely process your order with Stripe
+          Securely process your order with <b>Stripe</b>
+        </p>
+        <p className="mt-4 text-sm text-muted-foreground">
+          Your payment is securely processed by Stripe. We do not store any
+          payment information on our servers.
         </p>
       </div>
       <EmbeddedCheckoutProvider
