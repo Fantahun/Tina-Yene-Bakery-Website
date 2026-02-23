@@ -1,13 +1,42 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
-import { products } from "@/lib/mock-data"
 import { ProductCard } from "@/components/products/product-card"
 import { Button } from "@/components/ui/button"
+import type { ShopProduct } from "@/lib/shop-types"
 
 export function FeaturedProducts() {
-  const featured = products.slice(0, 4)
+  const [featured, setFeatured] = useState<ShopProduct[]>([])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadFeatured = async () => {
+      try {
+        const response = await fetch("/api/featured-products", { cache: "no-store" })
+        if (!response.ok) {
+          throw new Error("Failed to load featured products")
+        }
+        const data: ShopProduct[] = await response.json()
+        if (isMounted) {
+          setFeatured(data)
+        }
+      } catch (error) {
+        console.error(error)
+        if (isMounted) {
+          setFeatured([])
+        }
+      }
+    }
+
+    void loadFeatured()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   return (
     <section className="bg-muted/50">
@@ -15,10 +44,10 @@ export function FeaturedProducts() {
         <div className="mb-10 flex items-end justify-between">
           <div>
             <h2 className="text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              Fresh Picks
+              Customer Favorites
             </h2>
             <p className="mt-2 text-muted-foreground">
-              Our most popular items, loved by our customers
+              Our most loved cakes and pastries.
             </p>
           </div>
           <Button variant="ghost" asChild className="hidden sm:flex">

@@ -13,6 +13,7 @@ import { MobileNav } from "./mobile-nav"
 const navLinks = [
   { href: "/", label: "Home" },
   { href: "/shop", label: "Shop" },
+  {href: "/custom-cakes", label: "Custom Cakes"},
   { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
 ]

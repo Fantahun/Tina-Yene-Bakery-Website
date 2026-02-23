@@ -1,19 +1,56 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowRight } from "lucide-react"
-import { categories } from "@/lib/mock-data"
+
+type Category = {
+  id: string
+  name: string
+  slug: string
+  image_url: string
+}
 
 export function CategoriesSection() {
+  const [categories, setCategories] = useState<Category[]>([])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadCategories = async () => {
+      try {
+        const response = await fetch("/api/categories", { cache: "no-store" })
+        if (!response.ok) {
+          throw new Error("Failed to load categories")
+        }
+        const data: Category[] = await response.json()
+        if (isMounted) {
+          setCategories(data)
+        }
+      } catch (error) {
+        console.error(error)
+        if (isMounted) {
+          setCategories([])
+        }
+      }
+    }
+
+    void loadCategories()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
+
   return (
     <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
       <div className="mb-10 text-center">
         <h2 className="text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Browse Our Collections
+          Our Menu
         </h2>
         <p className="mx-auto mt-3 max-w-xl text-pretty text-muted-foreground">
-          From daily essentials to special celebrations, find the perfect baked goods for every occasion
+        {/*    No need of showing description paragraph for now - based on Tina's request on Feb 21, 2026  web correction document*/}
         </p>
       </div>
 
@@ -26,7 +63,7 @@ export function CategoriesSection() {
           >
             <div className="aspect-[4/3] overflow-hidden">
               <Image
-                src={category.image_url}
+                src={category.image_url || "/placeholder.jpg"}
                 alt={category.name}
                 width={600}
                 height={450}

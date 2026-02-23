@@ -4,14 +4,14 @@ import Image from "next/image"
 import Link from "next/link"
 import { ShoppingBag } from "lucide-react"
 import { toast } from "sonner"
-import type { Product } from "@/lib/mock-data"
+import type { ShopProduct } from "@/lib/shop-types"
 import { useAppDispatch } from "@/store/hooks"
 import { addToCart } from "@/store/cart-slice"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 
 interface ProductCardProps {
-  product: Product
+  product: ShopProduct
 }
 
 export function ProductCard({ product }: ProductCardProps) {
@@ -41,7 +41,7 @@ export function ProductCard({ product }: ProductCardProps) {
     >
       <div className="relative aspect-square overflow-hidden">
         <Image
-          src={product.image_url}
+          src={product.image_url || "/placeholder.jpg"}
           alt={product.name}
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-105"

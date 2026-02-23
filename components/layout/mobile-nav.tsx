@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { ShoppingBag, Home, Store, Info, Phone } from "lucide-react"
+import { ShoppingBag, Home, Store, Info, Phone,CakeIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { useAppSelector } from "@/store/hooks"
 import { selectCartItemCount, selectCartHydrated } from "@/store/cart-slice"
@@ -16,6 +16,7 @@ import {
 const navLinks = [
   { href: "/", label: "Home", icon: Home },
   { href: "/shop", label: "Shop", icon: Store },
+  {href: "/custom-cakes", label: "Custom Cakes", icon: CakeIcon},
   { href: "/about", label: "About", icon: Info },
   { href: "/contact", label: "Contact", icon: Phone },
   { href: "/cart", label: "Cart", icon: ShoppingBag },

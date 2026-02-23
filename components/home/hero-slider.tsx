@@ -16,10 +16,10 @@ import "swiper/css/effect-fade"
 const slides = [
   {
     image: "/images/hero-1.jpg",
-    title: "Freshly Baked, Every Day",
+    title: "Fresh Cakes & Pastries Made with Care",
     subtitle:
-      "Artisan breads and pastries crafted with care using the finest ingredients",
-    cta: "Shop Now",
+      "From everyday treats to special celebrations, we create beautiful baked goods for every moment.",
+    cta: "Explore Our Shop",
     href: "/shop",
   },
   {

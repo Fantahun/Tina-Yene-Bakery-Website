@@ -1,10 +1,10 @@
 "use client"
 
-import type { Product } from "@/lib/mock-data"
+import type { ShopProduct } from "@/lib/shop-types"
 import { ProductCard } from "./product-card"
 
 interface ProductGridProps {
-  products: Product[]
+  products: ShopProduct[]
 }
 
 export function ProductGrid({ products }: ProductGridProps) {
