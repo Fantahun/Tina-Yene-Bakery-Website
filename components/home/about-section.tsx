@@ -38,7 +38,7 @@ export function AboutSection() {
 				</h2>
 				<p className="mx-auto mt-3 max-w-xl text-pretty text-muted-foreground">
 					More than just a bakery, we are a community built on the love of great
-					bread and pastries
+					cake and pastries
 				</p>
 			</div>
 

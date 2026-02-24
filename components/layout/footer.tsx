@@ -4,12 +4,48 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { MapPin, Phone, Mail, Clock } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
+import {useEffect, useState} from "react";
 
+type Category = {
+  id: string
+  name: string
+  slug: string
+  image_url: string
+}
 export function Footer() {
   const pathname = usePathname();
 
+  const [categories, setCategories] = useState<Category[]>([])
+
+  useEffect(() => {
+    let isMounted = true
+
+    const loadCategories = async () => {
+      try {
+        const response = await fetch("/api/categories", { cache: "no-store" })
+        if (!response.ok) {
+          throw new Error("Failed to load categories")
+        }
+        const data: Category[] = await response.json()
+        if (isMounted) {
+          setCategories(data)
+        }
+      } catch (error) {
+        console.error(error)
+        if (isMounted) {
+          setCategories([])
+        }
+      }
+    }
+
+    void loadCategories()
+
+    return () => {
+      isMounted = false
+    }
+  }, [])
   // Don't show footer on admin pages
-  if (pathname.startsWith("/admin")) return null;
+  if (pathname.startsWith("/yeneAdmin")) return null;
 
   return (
     <footer className="border-t border-border bg-card">
@@ -37,24 +73,18 @@ export function Footer() {
               >
                 Shop All
               </Link>
-              <Link
-                href="/shop?category=artisan-breads"
-                className="text-sm text-muted-foreground transition-colors hover:text-primary"
-              >
-                Artisan Breads
-              </Link>
-              <Link
-                href="/shop?category=cakes-pastries"
-                className="text-sm text-muted-foreground transition-colors hover:text-primary"
-              >
-                Cakes & Pastries
-              </Link>
-              <Link
-                href="/shop?category=custom-orders"
-                className="text-sm text-muted-foreground transition-colors hover:text-primary"
-              >
-                Custom Orders
-              </Link>
+
+              {
+               categories.map((category: Category) => (
+                   <Link
+                       key={category.id}
+                       href={`/shop?category=${category.slug}`}
+                     className="text-sm text-muted-foreground transition-colors hover:text-primary"
+                     >
+                     {category.name}
+                   </Link>
+               ))}
+
             </nav>
           </div>
 
