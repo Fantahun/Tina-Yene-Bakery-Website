@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
-import { Wheat, Clock, Heart, Truck, Award, Users } from "lucide-react";
+import {Wheat, Truck, Users, HandHeart, PartyPopper, CreditCard} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
@@ -14,39 +14,39 @@ export const metadata: Metadata = {
 const values = [
   {
     icon: Wheat,
-    title: "Premium Ingredients",
+    title: "Fresh Ingredients",
     description:
-      "We source the finest organic flours, European butter, and seasonal produce for every recipe. No shortcuts, no compromises.",
+        "We use high-quality butter, flour, and fresh ingredients in every recipe.",
   },
   {
-    icon: Clock,
-    title: "Baked Fresh Daily",
+    icon: HandHeart,
+    title: "Made with Care",
     description:
-      "Our bakers start at 4am to ensure everything is fresh from the oven when you arrive. Nothing is ever day-old.",
+        "Each cake, cookie, and pastry is thoughtfully prepared from start to finish",
   },
   {
-    icon: Heart,
-    title: "Made with Love",
+    icon: PartyPopper,
+    title: "For Every Celebration",
     description:
-      "Every loaf, pastry, and cake is handcrafted with care and decades of baking expertise passed through generations.",
+        "From everyday treats to special occasions, we are here to make your moments sweeter.",
   },
   {
     icon: Truck,
-    title: "Pickup & Delivery",
+    title: "Simple & Convenient",
     description:
-      "Order online and pick up in store, or have your favorites delivered right to your door. Freshness guaranteed.",
+        "Easy online ordering with pickup and local delivery available.",
   },
   {
-    icon: Award,
-    title: "Award Winning",
+    icon: CreditCard,
+    title: "Secure Payment",
     description:
-      "Recognized by local food critics and community members alike. Our sourdough has won three consecutive best-bread awards.",
+        "Process your payments securely via Stripe - we dont store any payment details on our servers.",
   },
   {
     icon: Users,
     title: "Community First",
     description:
-      "We partner with local farms, sponsor school events, and donate unsold bread daily to neighborhood shelters.",
+      "We partner with local farms, sponsor school events, and donate unsold cakes daily to neighborhood shelters.",
   },
 ];
 
@@ -87,7 +87,7 @@ export default function AboutPage() {
               Since 2012
             </p>
             <h2 className="mt-2 text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-              A Passion for Great Bread
+              A Passion for Great Cake
             </h2>
             <div className="mt-6 space-y-4 text-muted-foreground leading-relaxed">
               <p>
@@ -95,13 +95,13 @@ export default function AboutPage() {
                 started as weekend baking sessions with cherished family recipes
                 quickly blossomed into something the whole neighborhood looked
                 forward to. Friends and neighbors kept asking for more, so in
-                2012 we opened our first storefront on Baker Street.
+                2025 we opened our first storefront on Baker Street.
               </p>
               <p>
                 Today, we are proud to serve our community with the same love
                 and attention to detail that started it all. Our head baker,
                 Tina, still personally oversees every batch that leaves the
-                oven. We believe that great bread begins with great ingredients
+                oven. We believe that great cake begins with great ingredients
                 and even greater care.
               </p>
               <p>
@@ -115,7 +115,7 @@ export default function AboutPage() {
           <div className="relative aspect-[4/3] overflow-hidden rounded-lg border border-border">
             <Image
               src="/images/hero-1.jpg"
-              alt="Artisan bread display at YeneBakery"
+              alt="Artisan cake display at YeneBakery"
               fill
               className="object-cover"
               sizes="(max-width: 1024px) 100vw, 50vw"
@@ -134,7 +134,7 @@ export default function AboutPage() {
           </h2>
           <p className="mx-auto mt-3 max-w-xl text-pretty text-muted-foreground">
             More than just a bakery, we are a community built on the love of
-            great bread and pastries.
+            great cake and pastries.
           </p>
         </div>
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
