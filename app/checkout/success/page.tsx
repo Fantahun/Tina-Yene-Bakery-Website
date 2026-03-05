@@ -50,7 +50,7 @@ function SuccessContent() {
   const searchParams = useSearchParams();
   const dispatch = useAppDispatch();
   const [order, setOrder] = useState<OrderData | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [isLoading, setLoading] = useState(true);
 
   useEffect(() => {
     const verifyAndLoadOrder = async () => {
@@ -133,7 +133,7 @@ function SuccessContent() {
     verifyAndLoadOrder();
   }, [router, searchParams, dispatch]);
 
-  if (loading) {
+  if (isLoading) {
     return (
       <div className="container mx-auto flex min-h-[60vh] items-center justify-center">
         <div className="flex flex-col items-center gap-4">

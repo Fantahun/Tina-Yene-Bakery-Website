@@ -1,84 +1,90 @@
-"use client"
+"use client";
 
-import { useEffect, useMemo, useState } from "react"
-import { Search } from "lucide-react"
-import { CategoryFilter } from "@/components/products/category-filter"
-import { ProductGrid } from "@/components/products/product-grid"
-import { Input } from "@/components/ui/input"
-import type { ShopCategory, ShopProduct } from "@/lib/shop-types"
+import { useEffect, useMemo, useState } from "react";
+import { Loader2, Search } from "lucide-react";
+import { CategoryFilter } from "@/components/products/category-filter";
+import { ProductGrid } from "@/components/products/product-grid";
+import { Input } from "@/components/ui/input";
+import type { ShopCategory, ShopProduct } from "@/lib/shop-types";
 
 interface ShopPageClientProps {
-  initialCategory: string | null
+  initialCategory: string | null;
 }
 
 export function ShopPageClient({ initialCategory }: ShopPageClientProps) {
   const [selectedCategory, setSelectedCategory] = useState<string | null>(
     initialCategory,
-  )
-  const [searchQuery, setSearchQuery] = useState("")
-  const [categories, setCategories] = useState<ShopCategory[]>([])
-  const [products, setProducts] = useState<ShopProduct[]>([])
+  );
+  const [searchQuery, setSearchQuery] = useState("");
+  const [categories, setCategories] = useState<ShopCategory[]>([]);
+  const [products, setProducts] = useState<ShopProduct[]>([]);
+  const [isLoading, setLoading] = useState(true);
 
   useEffect(() => {
-    let isMounted = true
+    setLoading(true);
+    let isMounted = true;
 
     const loadData = async () => {
       try {
         const [categoriesResponse, productsResponse] = await Promise.all([
           fetch("/api/categories", { cache: "no-store" }),
           fetch("/api/products", { cache: "no-store" }),
-        ])
+        ]);
 
         if (!categoriesResponse.ok || !productsResponse.ok) {
-          throw new Error("Failed to load shop data")
+          throw new Error("Failed to load shop data");
         }
 
         const [categoriesData, productsData] = await Promise.all([
           categoriesResponse.json() as Promise<ShopCategory[]>,
           productsResponse.json() as Promise<ShopProduct[]>,
-        ])
+        ]);
 
         if (isMounted) {
-          setCategories(categoriesData)
-          setProducts(productsData)
+          setCategories(categoriesData);
+          setProducts(productsData);
         }
       } catch (error) {
-        console.error(error)
+        console.error(error);
         if (isMounted) {
-          setCategories([])
-          setProducts([])
+          setCategories([]);
+          setProducts([]);
+        }
+      } finally {
+        if (isMounted) {
+          setLoading(false);
         }
       }
-    }
+    };
 
-    void loadData()
+    void loadData();
 
     return () => {
-      isMounted = false
-    }
-  }, [])
+      isMounted = false;
+    };
+  }, []);
 
   const filteredProducts = useMemo(() => {
-    let filtered = products.filter((p) => p.is_active)
+    let filtered = products.filter((p) => p.is_active);
 
     if (selectedCategory) {
-      const cat = categories.find((c) => c.slug === selectedCategory)
+      const cat = categories.find((c) => c.slug === selectedCategory);
       if (cat) {
-        filtered = filtered.filter((p) => p.category_id === cat.id)
+        filtered = filtered.filter((p) => p.category_id === cat.id);
       }
     }
 
     if (searchQuery.trim()) {
-      const query = searchQuery.toLowerCase()
+      const query = searchQuery.toLowerCase();
       filtered = filtered.filter(
         (p) =>
           p.name.toLowerCase().includes(query) ||
           p.description.toLowerCase().includes(query),
-      )
+      );
     }
 
-    return filtered
-  }, [categories, products, selectedCategory, searchQuery])
+    return filtered;
+  }, [categories, products, selectedCategory, searchQuery]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
@@ -113,14 +119,21 @@ export function ShopPageClient({ initialCategory }: ShopPageClientProps) {
 
       {/* Results Count */}
       <p className="mb-4 text-sm text-muted-foreground">
-        {filteredProducts.length} product{filteredProducts.length !== 1 ? "s" : ""}
+        {filteredProducts.length} product
+        {filteredProducts.length !== 1 ? "s" : ""}
         {selectedCategory
           ? ` in ${categories.find((c) => c.slug === selectedCategory)?.name ?? selectedCategory}`
           : ""}
       </p>
 
       {/* Product Grid */}
-      <ProductGrid products={filteredProducts} />
+      {isLoading ? (
+        <div className="flex items-center justify-center margin-auto col-span-full">
+          <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <ProductGrid products={filteredProducts} />
+      )}
     </div>
-  )
+  );
 }

@@ -48,25 +48,29 @@ export function CategoriesSection() {
     };
   }, []);
 
+  if (isLoading) {
+    return (
+      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="h-8 w-8 animate-spin text-foreground" />
+        </div>
+      </section>
+    );
+  }
+
+  if (categories.length === 0) {
+    return null;
+  }
+
   return (
     <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-      {categories.length != 0 && (
-        <div className="mb-10 text-center">
-          <h2 className="text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-            Our Menu
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-pretty text-muted-foreground">
-            {/*    No need of showing description paragraph for now - based on Tina's request on Feb 21, 2026  web correction document*/}
-          </p>
-        </div>
-      )}
+      <div className="mb-10 text-center">
+        <h2 className="text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+          Our Menu
+        </h2>
+      </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-        {isLoading && (
-          <div className="flex items-center justify-center margin-auto col-span-full">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
-          </div>
-        )}
         {categories.map((category) => (
           <Link
             key={category.id}
