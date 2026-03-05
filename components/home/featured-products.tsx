@@ -48,7 +48,7 @@ export function FeaturedProducts() {
   if (isLoading) {
     return (
       <section className="bg-muted/50">
-        <div className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
+        <div className="flex items-center justify-center mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
           <Loader2 className="h-8 w-8 animate-spin text-foreground" />
         </div>
       </section>
