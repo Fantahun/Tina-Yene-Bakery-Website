@@ -11,15 +11,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 
 const contactInfo = [
-  {
-    icon: MapPin,
-    label: "Visit Us",
-    lines: ["123 Baker Street, Suite 100", "Downtown"],
-  },
+  // {
+  //   icon: MapPin,
+  //   label: "Visit Us",
+  //   // lines: ["when needed we will put our address here"],
+  // },
   {
     icon: Phone,
     label: "Call Us",
-    lines: ["(555) 123-4567"],
+    lines: ["(425) 312-3140"],
   },
   {
     icon: Mail,
@@ -160,7 +160,7 @@ export default function ContactPage() {
                     id="contact-phone"
                     name="phone"
                     type="tel"
-                    placeholder="(555) 123-4567"
+                    placeholder="(425) 312-3140"
                   />
                 </div>
 
