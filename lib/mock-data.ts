@@ -1,42 +1,42 @@
 export interface Category {
-  id: number
-  name: string
-  slug: string
-  description: string
-  image_url: string
-  sort_order: number
-  is_active: boolean
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  image_url: string;
+  sort_order: number;
+  is_active: boolean;
 }
 
 export interface Product {
-  id: number
-  category_id: number
-  name: string
-  slug: string
-  description: string
-  price: number
-  image_url: string
-  prep_lead_time_days: number
-  pickup_allowed: boolean
-  delivery_allowed: boolean
-  is_active: boolean
-  sort_order: number
-  category?: string
+  id: number;
+  category_id: number;
+  name: string;
+  slug: string;
+  description: string;
+  price: number;
+  image_url: string;
+  prep_lead_time_days: number;
+  pickup_allowed: boolean;
+  delivery_allowed: boolean;
+  is_active: boolean;
+  sort_order: number;
+  category?: string;
 }
 
 export interface PickupLocation {
-  id: number
-  name: string
-  address: string
-  is_active: boolean
+  id: number;
+  name: string;
+  address: string;
+  is_active: boolean;
 }
 
 export interface OrderStatusEntry {
-  id: number
-  name: string
-  description?: string
-  sort_order: number
-  is_active: boolean
+  id: number;
+  name: string;
+  description?: string;
+  sort_order: number;
+  is_active: boolean;
 }
 
 export const categories: Category[] = [
@@ -44,7 +44,8 @@ export const categories: Category[] = [
     id: 1,
     name: "Artisan Breads",
     slug: "artisan-breads",
-    description: "Hand-crafted loaves baked fresh daily with premium ingredients",
+    description:
+      "Hand-crafted loaves baked fresh daily with premium ingredients",
     image_url: "/images/cat-breads.jpg",
     sort_order: 1,
     is_active: true,
@@ -53,7 +54,8 @@ export const categories: Category[] = [
     id: 2,
     name: "Cakes & Pastries",
     slug: "cakes-pastries",
-    description: "Beautifully decorated cakes and delicate pastries for every occasion",
+    description:
+      "Beautifully decorated cakes and delicate pastries for every occasion",
     image_url: "/images/cat-cakes.jpg",
     sort_order: 2,
     is_active: true,
@@ -71,12 +73,13 @@ export const categories: Category[] = [
     id: 4,
     name: "Custom Orders",
     slug: "custom-orders",
-    description: "Special celebration cakes and custom baked goods made to order",
+    description:
+      "Special celebration cakes and custom baked goods made to order",
     image_url: "/images/cat-custom.jpg",
     sort_order: 4,
     is_active: true,
   },
-]
+];
 
 export const products: Product[] = [
   {
@@ -84,8 +87,9 @@ export const products: Product[] = [
     category_id: 1,
     name: "Sourdough Loaf",
     slug: "sourdough-loaf",
-    description: "Our signature sourdough with a crisp crust and tender, tangy crumb. Made with a 24-hour fermented starter for exceptional flavor and texture.",
-    price: 8.50,
+    description:
+      "Our signature sourdough with a crisp crust and tender, tangy crumb. Made with a 24-hour fermented starter for exceptional flavor and texture.",
+    price: 8.5,
     image_url: "/images/sourdough.jpg",
     prep_lead_time_days: 0,
     pickup_allowed: true,
@@ -99,8 +103,9 @@ export const products: Product[] = [
     category_id: 1,
     name: "Ciabatta",
     slug: "ciabatta",
-    description: "Light, airy Italian bread with an open crumb and golden crust. Perfect for sandwiches or dipping in olive oil.",
-    price: 6.50,
+    description:
+      "Light, airy Italian bread with an open crumb and golden crust. Perfect for sandwiches or dipping in olive oil.",
+    price: 6.5,
     image_url: "/images/ciabatta.jpg",
     prep_lead_time_days: 0,
     pickup_allowed: true,
@@ -114,8 +119,9 @@ export const products: Product[] = [
     category_id: 1,
     name: "Multigrain Loaf",
     slug: "multigrain-loaf",
-    description: "A hearty blend of whole wheat, oats, flaxseed, and sunflower seeds. Nutritious and delicious.",
-    price: 9.00,
+    description:
+      "A hearty blend of whole wheat, oats, flaxseed, and sunflower seeds. Nutritious and delicious.",
+    price: 9.0,
     image_url: "/images/multigrain.jpg",
     prep_lead_time_days: 0,
     pickup_allowed: true,
@@ -129,8 +135,9 @@ export const products: Product[] = [
     category_id: 2,
     name: "Classic Croissant",
     slug: "classic-croissant",
-    description: "Buttery, flaky French croissant made with imported European butter. 36 layers of laminated dough for the perfect crisp.",
-    price: 4.50,
+    description:
+      "Buttery, flaky French croissant made with imported European butter. 36 layers of laminated dough for the perfect crisp.",
+    price: 4.5,
     image_url: "/images/croissant.jpg",
     prep_lead_time_days: 0,
     pickup_allowed: true,
@@ -144,8 +151,9 @@ export const products: Product[] = [
     category_id: 2,
     name: "Chocolate Eclair",
     slug: "chocolate-eclair",
-    description: "Classic French pastry filled with vanilla custard and topped with rich dark chocolate ganache.",
-    price: 5.50,
+    description:
+      "Classic French pastry filled with vanilla custard and topped with rich dark chocolate ganache.",
+    price: 5.5,
     image_url: "/images/eclair.jpg",
     prep_lead_time_days: 0,
     pickup_allowed: true,
@@ -159,8 +167,9 @@ export const products: Product[] = [
     category_id: 2,
     name: "Fruit Tart",
     slug: "fruit-tart",
-    description: "Delicate pate sucree shell filled with pastry cream and topped with an array of fresh seasonal fruits.",
-    price: 7.00,
+    description:
+      "Delicate pate sucree shell filled with pastry cream and topped with an array of fresh seasonal fruits.",
+    price: 7.0,
     image_url: "/images/fruit-tart.jpg",
     prep_lead_time_days: 1,
     pickup_allowed: true,
@@ -174,8 +183,9 @@ export const products: Product[] = [
     category_id: 3,
     name: "Chocolate Chip Cookies (6-pack)",
     slug: "chocolate-chip-cookies",
-    description: "Our famous chocolate chip cookies made with brown butter and premium dark chocolate chunks. Crisp edges, chewy center.",
-    price: 12.00,
+    description:
+      "Our famous chocolate chip cookies made with brown butter and premium dark chocolate chunks. Crisp edges, chewy center.",
+    price: 12.0,
     image_url: "/images/cookies.jpg",
     prep_lead_time_days: 0,
     pickup_allowed: true,
@@ -189,8 +199,9 @@ export const products: Product[] = [
     category_id: 3,
     name: "Brownies (4-pack)",
     slug: "brownies",
-    description: "Dense, fudgy brownies made with high-quality cocoa and a hint of espresso to deepen the chocolate flavor.",
-    price: 14.00,
+    description:
+      "Dense, fudgy brownies made with high-quality cocoa and a hint of espresso to deepen the chocolate flavor.",
+    price: 14.0,
     image_url: "/images/brownies.jpg",
     prep_lead_time_days: 0,
     pickup_allowed: true,
@@ -204,8 +215,9 @@ export const products: Product[] = [
     category_id: 3,
     name: "Macarons Box (12-pack)",
     slug: "macarons-box",
-    description: "Assorted French macarons in flavors including vanilla, pistachio, raspberry, chocolate, and salted caramel.",
-    price: 24.00,
+    description:
+      "Assorted French macarons in flavors including vanilla, pistachio, raspberry, chocolate, and salted caramel.",
+    price: 24.0,
     image_url: "/images/macarons.jpg",
     prep_lead_time_days: 1,
     pickup_allowed: true,
@@ -219,8 +231,9 @@ export const products: Product[] = [
     category_id: 4,
     name: "Custom Celebration Cake",
     slug: "custom-celebration-cake",
-    description: "A personalized cake designed for your special occasion. Choose from our range of flavors, fillings, and decorations. Serves 12-16 guests.",
-    price: 85.00,
+    description:
+      "A personalized cake designed for your special occasion. Choose from our range of flavors, fillings, and decorations. Serves 12-16 guests.",
+    price: 85.0,
     image_url: "/images/custom-cake.jpg",
     prep_lead_time_days: 3,
     pickup_allowed: true,
@@ -234,8 +247,9 @@ export const products: Product[] = [
     category_id: 4,
     name: "Wedding Cupcake Tower (48-pack)",
     slug: "wedding-cupcake-tower",
-    description: "An elegant tower of 48 beautifully decorated cupcakes. Perfect as an alternative to a traditional wedding cake.",
-    price: 150.00,
+    description:
+      "An elegant tower of 48 beautifully decorated cupcakes. Perfect as an alternative to a traditional wedding cake.",
+    price: 150.0,
     image_url: "/images/cupcake-tower.jpg",
     prep_lead_time_days: 5,
     pickup_allowed: true,
@@ -249,8 +263,9 @@ export const products: Product[] = [
     category_id: 2,
     name: "Cinnamon Roll",
     slug: "cinnamon-roll",
-    description: "Soft, pillowy cinnamon roll swirled with cinnamon-sugar and topped with a generous drizzle of cream cheese icing.",
-    price: 5.00,
+    description:
+      "Soft, pillowy cinnamon roll swirled with cinnamon-sugar and topped with a generous drizzle of cream cheese icing.",
+    price: 5.0,
     image_url: "/images/cinnamon-roll.jpg",
     prep_lead_time_days: 0,
     pickup_allowed: true,
@@ -259,13 +274,13 @@ export const products: Product[] = [
     sort_order: 4,
     category: "Cakes & Pastries",
   },
-]
+];
 
 export const pickupLocations: PickupLocation[] = [
   {
     id: 1,
     name: "YeneBakery Main Store",
-    address: "123 Baker Street, Suite 100, Downtown",
+    address: "When needed our address can be put here",
     is_active: true,
   },
   {
@@ -274,45 +289,45 @@ export const pickupLocations: PickupLocation[] = [
     address: "456 Elm Avenue, Westside Shopping Center",
     is_active: true,
   },
-]
+];
 
 export const siteSettings = {
   cutoff_time: "11:00",
   delivery_fee: 5.99,
-  min_order_delivery: 25.00,
-  store_phone: "(555) 123-4567",
+  min_order_delivery: 25.0,
+  store_phone: "(425) 312-3140",
   store_email: "hello@YeneBakery.com",
-}
+};
 
-export type OrderStatus = string
+export type OrderStatus = string;
 
-export type PaymentStatus = "pending" | "paid" | "failed" | "refunded"
+export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
 
 export interface Order {
-  id: string
-  confirmation_number: string
-  customer_name: string
-  customer_email: string
-  customer_phone: string
-  business_name?: string
-  fulfillment_method: "pickup" | "delivery"
-  fulfillment_date: string
-  pickup_location?: string
-  delivery_address?: string
-  subtotal: number
-  delivery_fee: number
-  total: number
-  order_notes?: string
-  order_status: OrderStatus
-  order_status_id?: number
-  payment_status: PaymentStatus
-  created_at: string
+  id: string;
+  confirmation_number: string;
+  customer_name: string;
+  customer_email: string;
+  customer_phone: string;
+  business_name?: string;
+  fulfillment_method: "pickup" | "delivery";
+  fulfillment_date: string;
+  pickup_location?: string;
+  delivery_address?: string;
+  subtotal: number;
+  delivery_fee: number;
+  total: number;
+  order_notes?: string;
+  order_status: OrderStatus;
+  order_status_id?: number;
+  payment_status: PaymentStatus;
+  created_at: string;
   items: Array<{
-    product_name: string
-    quantity: number
-    unit_price: number
-    line_total: number
-  }>
+    product_name: string;
+    quantity: number;
+    unit_price: number;
+    line_total: number;
+  }>;
 }
 
 export const mockOrders: Order[] = [
@@ -325,17 +340,32 @@ export const mockOrders: Order[] = [
     fulfillment_method: "pickup",
     fulfillment_date: "2026-02-15",
     pickup_location: "YeneBakery Main Store",
-    subtotal: 21.50,
+    subtotal: 21.5,
     delivery_fee: 0,
-    total: 21.50,
+    total: 21.5,
     order_notes: "Please add extra icing on the cinnamon roll",
     order_status: "pending",
     payment_status: "paid",
     created_at: "2026-02-12T09:30:00Z",
     items: [
-      { product_name: "Sourdough Loaf", quantity: 1, unit_price: 8.50, line_total: 8.50 },
-      { product_name: "Classic Croissant", quantity: 2, unit_price: 4.50, line_total: 9.00 },
-      { product_name: "Cinnamon Roll", quantity: 1, unit_price: 5.00, line_total: 5.00 },
+      {
+        product_name: "Sourdough Loaf",
+        quantity: 1,
+        unit_price: 8.5,
+        line_total: 8.5,
+      },
+      {
+        product_name: "Classic Croissant",
+        quantity: 2,
+        unit_price: 4.5,
+        line_total: 9.0,
+      },
+      {
+        product_name: "Cinnamon Roll",
+        quantity: 1,
+        unit_price: 5.0,
+        line_total: 5.0,
+      },
     ],
   },
   {
@@ -348,15 +378,25 @@ export const mockOrders: Order[] = [
     fulfillment_method: "delivery",
     fulfillment_date: "2026-02-16",
     delivery_address: "456 Business Blvd, Suite 200, Downtown 90210",
-    subtotal: 50.00,
+    subtotal: 50.0,
     delivery_fee: 5.99,
     total: 55.99,
     order_status: "in_preparation",
     payment_status: "paid",
     created_at: "2026-02-12T11:00:00Z",
     items: [
-      { product_name: "Chocolate Chip Cookies (6-pack)", quantity: 2, unit_price: 12.00, line_total: 24.00 },
-      { product_name: "Macarons Box (12-pack)", quantity: 1, unit_price: 24.00, line_total: 24.00 },
+      {
+        product_name: "Chocolate Chip Cookies (6-pack)",
+        quantity: 2,
+        unit_price: 12.0,
+        line_total: 24.0,
+      },
+      {
+        product_name: "Macarons Box (12-pack)",
+        quantity: 1,
+        unit_price: 24.0,
+        line_total: 24.0,
+      },
     ],
   },
   {
@@ -368,15 +408,21 @@ export const mockOrders: Order[] = [
     fulfillment_method: "pickup",
     fulfillment_date: "2026-02-18",
     pickup_location: "YeneBakery Westside",
-    subtotal: 85.00,
+    subtotal: 85.0,
     delivery_fee: 0,
-    total: 85.00,
-    order_notes: "Write 'Happy Birthday Sarah!' in blue icing. Flavor: chocolate with raspberry filling.",
+    total: 85.0,
+    order_notes:
+      "Write 'Happy Birthday Sarah!' in blue icing. Flavor: chocolate with raspberry filling.",
     order_status: "pending",
     payment_status: "paid",
     created_at: "2026-02-11T14:20:00Z",
     items: [
-      { product_name: "Custom Celebration Cake", quantity: 1, unit_price: 85.00, line_total: 85.00 },
+      {
+        product_name: "Custom Celebration Cake",
+        quantity: 1,
+        unit_price: 85.0,
+        line_total: 85.0,
+      },
     ],
   },
   {
@@ -388,15 +434,25 @@ export const mockOrders: Order[] = [
     fulfillment_method: "pickup",
     fulfillment_date: "2026-02-13",
     pickup_location: "YeneBakery Main Store",
-    subtotal: 15.00,
+    subtotal: 15.0,
     delivery_fee: 0,
-    total: 15.00,
+    total: 15.0,
     order_status: "ready_for_pickup",
     payment_status: "paid",
     created_at: "2026-02-10T16:45:00Z",
     items: [
-      { product_name: "Multigrain Loaf", quantity: 1, unit_price: 9.00, line_total: 9.00 },
-      { product_name: "Ciabatta", quantity: 1, unit_price: 6.50, line_total: 6.50 },
+      {
+        product_name: "Multigrain Loaf",
+        quantity: 1,
+        unit_price: 9.0,
+        line_total: 9.0,
+      },
+      {
+        product_name: "Ciabatta",
+        quantity: 1,
+        unit_price: 6.5,
+        line_total: 6.5,
+      },
     ],
   },
   {
@@ -409,7 +465,7 @@ export const mockOrders: Order[] = [
     fulfillment_method: "delivery",
     fulfillment_date: "2026-02-20",
     delivery_address: "789 Creative Ln, Apt 3A, Artsville 90211",
-    subtotal: 178.50,
+    subtotal: 178.5,
     delivery_fee: 5.99,
     total: 184.49,
     order_notes: "Elegant styling for cupcakes - gold and white theme",
@@ -417,9 +473,24 @@ export const mockOrders: Order[] = [
     payment_status: "paid",
     created_at: "2026-02-12T08:15:00Z",
     items: [
-      { product_name: "Wedding Cupcake Tower (48-pack)", quantity: 1, unit_price: 150.00, line_total: 150.00 },
-      { product_name: "Brownies (4-pack)", quantity: 1, unit_price: 14.00, line_total: 14.00 },
-      { product_name: "Fruit Tart", quantity: 2, unit_price: 7.00, line_total: 14.00 },
+      {
+        product_name: "Wedding Cupcake Tower (48-pack)",
+        quantity: 1,
+        unit_price: 150.0,
+        line_total: 150.0,
+      },
+      {
+        product_name: "Brownies (4-pack)",
+        quantity: 1,
+        unit_price: 14.0,
+        line_total: 14.0,
+      },
+      {
+        product_name: "Fruit Tart",
+        quantity: 2,
+        unit_price: 7.0,
+        line_total: 14.0,
+      },
     ],
   },
-]
+];

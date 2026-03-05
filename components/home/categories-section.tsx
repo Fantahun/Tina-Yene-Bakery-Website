@@ -1,60 +1,72 @@
-"use client"
+"use client";
 
-import { useEffect, useState } from "react"
-import Image from "next/image"
-import Link from "next/link"
-import { ArrowRight } from "lucide-react"
+import { useEffect, useState } from "react";
+import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 type Category = {
-  id: string
-  name: string
-  slug: string
-  image_url: string
-}
+  id: string;
+  name: string;
+  slug: string;
+  image_url: string;
+};
 
 export function CategoriesSection() {
-  const [categories, setCategories] = useState<Category[]>([])
+  const [isLoading, setIsLoading] = useState(false);
+  const [categories, setCategories] = useState<Category[]>([]);
 
   useEffect(() => {
-    let isMounted = true
+    setIsLoading(true);
+    let isMounted = true;
 
     const loadCategories = async () => {
       try {
-        const response = await fetch("/api/categories", { cache: "no-store" })
+        const response = await fetch("/api/categories", { cache: "no-store" });
         if (!response.ok) {
-          throw new Error("Failed to load categories")
+          throw new Error("Failed to load categories");
         }
-        const data: Category[] = await response.json()
+        const data: Category[] = await response.json();
         if (isMounted) {
-          setCategories(data)
+          setCategories(data);
         }
       } catch (error) {
-        console.error(error)
+        console.error(error);
         if (isMounted) {
-          setCategories([])
+          setCategories([]);
         }
+      } finally {
+        setIsLoading(false);
       }
-    }
+    };
 
-    void loadCategories()
+    void loadCategories();
 
     return () => {
-      isMounted = false
-    }
-  }, [])
+      isMounted = false;
+    };
+  }, []);
 
   return (
     <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-      <div className="mb-10 text-center">
-        <h2 className="text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
-          Our Menu
-        </h2>
-        <p className="mx-auto mt-3 max-w-xl text-pretty text-muted-foreground">
-        {/*    No need of showing description paragraph for now - based on Tina's request on Feb 21, 2026  web correction document*/}
-        </p>
-      </div>
+      {categories.length != 0 && (
+        <div className="mb-10 text-center">
+          <h2 className="text-balance text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Our Menu
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-pretty text-muted-foreground">
+            {/*    No need of showing description paragraph for now - based on Tina's request on Feb 21, 2026  web correction document*/}
+          </p>
+        </div>
+      )}
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
+        {isLoading && (
+          <div className="flex items-center justify-center margin-auto col-span-full">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
         {categories.map((category) => (
           <Link
             key={category.id}
@@ -83,5 +95,5 @@ export function CategoriesSection() {
         ))}
       </div>
     </section>
-  )
+  );
 }

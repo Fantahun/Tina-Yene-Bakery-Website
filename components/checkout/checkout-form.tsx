@@ -76,8 +76,11 @@ export function CheckoutForm() {
   const subtotal = useAppSelector(selectCartSubtotal);
   const maxLeadTime = useAppSelector(selectMaxLeadTime);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [pickupLocations, setPickupLocations] = useState<PickupLocationOption[]>([]);
-  const [siteSettings, setSiteSettings] = useState<SiteSettingsPayload>(defaultSettings);
+  const [pickupLocations, setPickupLocations] = useState<
+    PickupLocationOption[]
+  >([]);
+  const [siteSettings, setSiteSettings] =
+    useState<SiteSettingsPayload>(defaultSettings);
 
   const allPickupAllowed = items.every((i) => i.pickup_allowed);
   const allDeliveryAllowed = items.every((i) => i.delivery_allowed);
@@ -249,7 +252,7 @@ export function CheckoutForm() {
             <Input
               id="customerPhone"
               type="tel"
-              placeholder="(555) 123-4567"
+              placeholder="(425) 312-3140"
               {...register("customerPhone")}
               aria-invalid={!!errors.customerPhone}
             />
