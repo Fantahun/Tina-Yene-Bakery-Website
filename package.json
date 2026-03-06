@@ -2,11 +2,28 @@
   "name": "tina-yene-bakery-website-project",
   "version": "0.1.0",
   "private": true,
+  "description": "```powershell\r pnpm install\r pnpm run dev\r ```",
+  "homepage": "https://github.com/Fantahun/Tina-Yene-Bakery-Website#readme",
+  "bugs": {
+    "url": "https://github.com/Fantahun/Tina-Yene-Bakery-Website/issues"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Fantahun/Tina-Yene-Bakery-Website.git"
+  },
+  "license": "ISC",
+  "author": "",
+  "type": "module",
+  "main": "eslint.config.js",
+  "directories": {
+    "lib": "lib"
+  },
   "scripts": {
     "dev": "next dev --turbo",
     "build": "prisma generate && next build",
     "start": "next start",
     "lint": "eslint .",
+    "postinstall": "prisma generate",
     "seed:orders": "node scripts/seed-orders.mjs",
     "smoke:reports": "node scripts/reports-smoke.mjs"
   },
