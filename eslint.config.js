@@ -1,6 +1,6 @@
-const js = require("@eslint/js")
+import js from "@eslint/js";
 
-module.exports = [
+export default [
   {
     ignores: [".next/**", "node_modules/**", "dist/**", "out/**"],
   },
@@ -16,4 +16,4 @@ module.exports = [
       },
     },
   },
-]
+];

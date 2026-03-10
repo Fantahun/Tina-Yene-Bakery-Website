@@ -17,12 +17,11 @@ import {
   StickyNote,
   Loader2,
 } from "lucide-react";
-import { useAppSelector, useAppDispatch } from "@/store/hooks";
+import { useAppSelector } from "@/store/hooks";
 import {
   selectCartItems,
   selectCartSubtotal,
   selectMaxLeadTime,
-  clearCart,
 } from "@/store/cart-slice";
 import { getEarliestFulfillmentDate, isDateDisabled } from "@/lib/fulfillment";
 import { checkoutFormSchema, type CheckoutFormValues } from "@/lib/validations";
@@ -71,7 +70,6 @@ const defaultSettings: SiteSettingsPayload = {
 
 export function CheckoutForm() {
   const router = useRouter();
-  const dispatch = useAppDispatch();
   const items = useAppSelector(selectCartItems);
   const subtotal = useAppSelector(selectCartSubtotal);
   const maxLeadTime = useAppSelector(selectMaxLeadTime);
@@ -81,6 +79,7 @@ export function CheckoutForm() {
   >([]);
   const [siteSettings, setSiteSettings] =
     useState<SiteSettingsPayload>(defaultSettings);
+  const [isDatePickerOpen, setIsDatePickerOpen] = useState(false);
 
   const allPickupAllowed = items.every((i) => i.pickup_allowed);
   const allDeliveryAllowed = items.every((i) => i.delivery_allowed);
@@ -453,7 +452,7 @@ export function CheckoutForm() {
           )}
         </p>
         <div className="mt-4">
-          <Popover>
+          <Popover open={isDatePickerOpen} onOpenChange={setIsDatePickerOpen}>
             <PopoverTrigger asChild>
               <Button
                 variant="outline"
@@ -473,18 +472,30 @@ export function CheckoutForm() {
                   : "Pick a date"}
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
+            <PopoverContent
+              className="w-auto rounded-lg border p-0"
+              align="start"
+              sideOffset={8}
+            >
               <Calendar
+                className="rounded-md"
                 mode="single"
                 selected={selectedDate}
-                onSelect={(date) => {
-                  if (date) setValue("fulfillmentDate", date);
+                onDayClick={(date, modifiers) => {
+                  if (!modifiers.disabled) {
+                    setValue("fulfillmentDate", date);
+                    setIsDatePickerOpen(false);
+                  }
                 }}
                 disabled={(date) => isDateDisabled(date, earliestDate)}
-                initialFocus
+                fixedWeeks
+                autoFocus
               />
             </PopoverContent>
           </Popover>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Grayed dates are unavailable for fulfillment.
+          </p>
           {errors.fulfillmentDate && (
             <p className="mt-2 text-sm text-destructive">
               {errors.fulfillmentDate.message}
