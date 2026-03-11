@@ -113,18 +113,25 @@ Exports are available as CSV from the report tabs.
 pnpm run smoke:reports
 ```
 
-## Temporary Coming-Soon Mode
+## Temporary Public Hold Modes
 
-We will use this when we want every user-facing route to show a single landing page before launch.
+Use these flags when you want to temporarily gate user-facing routes before or during release work.
 
-1. Set `NEXT_PUBLIC_COMING_SOON=true` in your active env file (for example `.env.local` in dev or your production environment variables).
-2. (Optional) Set `NEXT_PUBLIC_COMING_SOON_TARGET_DATE="2026-06-01T10:00:00Z"` to control the countdown timer on the landing page.
+1. Set mode flags in your active env file:
+   - `NEXT_PUBLIC_COMING_SOON=true`
+   - `NEXT_PUBLIC_MAINTENANCE_MODE=true`
+2. (Optional for coming soon) Set `NEXT_PUBLIC_COMING_SOON_TARGET_DATE="2026-06-01T10:00:00Z"` to control the countdown.
 3. Deploy/restart the app.
-4. Visit any route (such as `/`, `/shop`, `/contact`) and it will render `app/coming-soon/page.tsx`.
+4. Visit any route (such as `/`, `/shop`, `/contact`) and it will render the active hold page.
 
-To restore the full website, set `NEXT_PUBLIC_COMING_SOON=false` (or remove it) and restart.
+Precedence:
+- If both flags are true, `maintenance` has higher priority and `/maintenance` is shown.
+- If only coming-soon is true, `/coming-soon` is shown.
+- If both are false, the full website is shown.
 
 Notes:
 - Internal/static paths are excluded from rewrite (`/_next`, files like images, favicon, robots, sitemap).
 - API routes (`/api/*`) stay reachable so backend integrations keep working.
-- Admin routes (`/yeneAdmin/*`) remain accessible during coming-soon mode.
+- Admin routes (`/yeneAdmin/*`) remain accessible during both modes.
+
+To restore the full website, set both mode flags to `false` (or remove them) and restart.

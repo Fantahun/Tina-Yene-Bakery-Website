@@ -31,7 +31,9 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const maintenanceEnabled = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === "true";
   const comingSoonEnabled = process.env.NEXT_PUBLIC_COMING_SOON === "true";
+  const publicModeEnabled = maintenanceEnabled || comingSoonEnabled;
 
   return (
     <html lang="en">
@@ -40,7 +42,7 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <ReduxProvider>
-          {comingSoonEnabled ? (
+          {publicModeEnabled ? (
             <main>{children}</main>
           ) : (
             <div className="flex min-h-screen flex-col">
