@@ -112,3 +112,19 @@ Exports are available as CSV from the report tabs.
 ```powershell
 pnpm run smoke:reports
 ```
+
+## Temporary Coming-Soon Mode
+
+We will use this when we want every user-facing route to show a single landing page before launch.
+
+1. Set `NEXT_PUBLIC_COMING_SOON=true` in your active env file (for example `.env.local` in dev or your production environment variables).
+2. (Optional) Set `NEXT_PUBLIC_COMING_SOON_TARGET_DATE="2026-06-01T10:00:00Z"` to control the countdown timer on the landing page.
+3. Deploy/restart the app.
+4. Visit any route (such as `/`, `/shop`, `/contact`) and it will render `app/coming-soon/page.tsx`.
+
+To restore the full website, set `NEXT_PUBLIC_COMING_SOON=false` (or remove it) and restart.
+
+Notes:
+- Internal/static paths are excluded from rewrite (`/_next`, files like images, favicon, robots, sitemap).
+- API routes (`/api/*`) stay reachable so backend integrations keep working.
+- Admin routes (`/yeneAdmin/*`) remain accessible during coming-soon mode.
