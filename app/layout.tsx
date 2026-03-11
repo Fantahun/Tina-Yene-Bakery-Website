@@ -31,6 +31,8 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const comingSoonEnabled = process.env.NEXT_PUBLIC_COMING_SOON === "true";
+
   return (
     <html lang="en">
       <body
@@ -38,11 +40,15 @@ export default function RootLayout({
         suppressHydrationWarning
       >
         <ReduxProvider>
-          <div className="flex min-h-screen flex-col">
-            <Header />
-            <main className="flex-1">{children}</main>
-            <Footer />
-          </div>
+          {comingSoonEnabled ? (
+            <main>{children}</main>
+          ) : (
+            <div className="flex min-h-screen flex-col">
+              <Header />
+              <main className="flex-1">{children}</main>
+              <Footer />
+            </div>
+          )}
           <Toaster position="top-right" richColors />
         </ReduxProvider>
       </body>

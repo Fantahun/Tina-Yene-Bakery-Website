@@ -91,3 +91,68 @@
   opacity: 1 !important;
   background: hsl(var(--primary)) !important;
 }
+
+@keyframes slow-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes gradient-shift {
+  0%,
+  100% {
+    background-position: 0 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes aurora-hue-shift {
+  from {
+    filter: hue-rotate(0deg);
+  }
+  to {
+    filter: hue-rotate(360deg);
+  }
+}
+
+@property --border-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+
+@keyframes border-angle-rotate {
+  to {
+    --border-angle: 360deg;
+  }
+}
+
+.animate-aurora-spin {
+  animation: slow-rotate 10s linear infinite, aurora-hue-shift 5s linear infinite;
+  will-change: transform, filter;
+  background-size: 220% 220%;
+}
+
+.animate-aurora-spin-slower {
+  animation: slow-rotate 7s linear infinite, aurora-hue-shift 3s linear infinite;
+  will-change: transform, filter;
+  background-size: 220% 220%;
+}
+
+.animate-conic-border-flow {
+  animation: border-angle-rotate 12s linear infinite, aurora-hue-shift 8s linear infinite;
+  will-change: filter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-aurora-spin,
+  .animate-aurora-spin-slower,
+  .animate-conic-border-flow {
+    animation: none;
+  }
+}
