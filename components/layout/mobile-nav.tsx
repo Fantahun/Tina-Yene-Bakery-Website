@@ -12,6 +12,7 @@ import {
   SheetHeader,
   SheetTitle,
 } from "@/components/ui/sheet"
+import Image from "next/image"
 
 const navLinks = [
   { href: "/", label: "Home", icon: Home },
@@ -37,7 +38,14 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
       <SheetContent side="left" className="w-72 p-0">
         <SheetHeader className="border-b border-border p-6">
           <SheetTitle className="text-left text-xl font-bold tracking-tight">
-            Yene<span className="text-primary">Bakery</span>
+            <Image
+              src="/images/logo/yene-bakery-logo-nav.jpg"
+              alt="YeneBakery"
+              width={170}
+              height={44}
+              priority
+              className="h-10 w-auto"
+            />
           </SheetTitle>
         </SheetHeader>
         <nav className="flex flex-col py-4" aria-label="Mobile navigation">

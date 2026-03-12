@@ -9,6 +9,7 @@ import { useAppSelector } from "@/store/hooks"
 import { selectCartItemCount, selectCartHydrated } from "@/store/cart-slice"
 import { Button } from "@/components/ui/button"
 import { MobileNav } from "./mobile-nav"
+import Image from "next/image";
 
 const navLinks = [
   { href: "/", label: "Home" },
@@ -33,9 +34,15 @@ export function Header() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2">
-            <span className="text-2xl font-bold tracking-tight text-foreground">
-              Yene<span className="text-primary">Bakery</span>
-            </span>
+            {/*<span className="text-2xl font-bold tracking-tight text-foreground">*/}
+            {/*  Yene<span className="text-primary">Bakery</span>*/}
+            {/*</span>*/}
+            <Image src="/images/logo/yene-bakery-logo-nav.jpg"
+                   alt="YeneBakery"
+                   width={170}
+                   height={44}
+                   priority className="h-10 w-auto"
+            />
           </Link>
 
           {/* Desktop Navigation */}
