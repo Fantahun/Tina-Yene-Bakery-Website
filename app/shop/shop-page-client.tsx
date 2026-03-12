@@ -1,68 +1,27 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { Loader2, Search } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { Search } from "lucide-react";
 import { CategoryFilter } from "@/components/products/category-filter";
 import { ProductGrid } from "@/components/products/product-grid";
 import { Input } from "@/components/ui/input";
 import type { ShopCategory, ShopProduct } from "@/lib/shop-types";
 
 interface ShopPageClientProps {
-  initialCategory: string | null;
+  categories: ShopCategory[];
+  products: ShopProduct[];
 }
 
-export function ShopPageClient({ initialCategory }: ShopPageClientProps) {
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(
-    initialCategory,
-  );
+export function ShopPageClient({ categories, products }: ShopPageClientProps) {
+  const searchParams = useSearchParams();
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [categories, setCategories] = useState<ShopCategory[]>([]);
-  const [products, setProducts] = useState<ShopProduct[]>([]);
-  const [isLoading, setLoading] = useState(true);
 
   useEffect(() => {
-    setLoading(true);
-    let isMounted = true;
-
-    const loadData = async () => {
-      try {
-        const [categoriesResponse, productsResponse] = await Promise.all([
-          fetch("/api/categories", { cache: "no-store" }),
-          fetch("/api/products", { cache: "no-store" }),
-        ]);
-
-        if (!categoriesResponse.ok || !productsResponse.ok) {
-          throw new Error("Failed to load shop data");
-        }
-
-        const [categoriesData, productsData] = await Promise.all([
-          categoriesResponse.json() as Promise<ShopCategory[]>,
-          productsResponse.json() as Promise<ShopProduct[]>,
-        ]);
-
-        if (isMounted) {
-          setCategories(categoriesData);
-          setProducts(productsData);
-        }
-      } catch (error) {
-        console.error(error);
-        if (isMounted) {
-          setCategories([]);
-          setProducts([]);
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
-    };
-
-    void loadData();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    const categoryParam = searchParams?.get("category") ?? null;
+    setSelectedCategory(categoryParam);
+  }, [searchParams]);
 
   const filteredProducts = useMemo(() => {
     let filtered = products.filter((p) => p.is_active);
@@ -127,13 +86,7 @@ export function ShopPageClient({ initialCategory }: ShopPageClientProps) {
       </p>
 
       {/* Product Grid */}
-      {isLoading ? (
-        <div className="flex items-center justify-center margin-auto col-span-full">
-          <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      ) : (
-        <ProductGrid products={filteredProducts} />
-      )}
+      <ProductGrid products={filteredProducts} />
     </div>
   );
 }

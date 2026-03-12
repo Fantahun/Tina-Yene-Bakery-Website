@@ -1,9 +1,12 @@
+import type { Metadata } from "next"
 import Link from "next/link"
 import Image from "next/image"
 
 import { Button } from "@/components/ui/button"
 
-export const metadata = {
+export const revalidate = 86400
+
+export const metadata: Metadata = {
   title: "Custom Cakes | Yene Bakery",
   description: "Order a custom cake made for your celebration.",
 }
@@ -73,4 +76,3 @@ export default function CustomCakesPage() {
     </div>
   )
 }
-

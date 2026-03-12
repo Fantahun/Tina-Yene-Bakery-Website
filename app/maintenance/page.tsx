@@ -15,7 +15,7 @@ export default function MaintenancePage() {
               </span>
             </div>
 
-            <div className="relative h-24 w-24 overflow-hidden bg-white/90 rounded-full border border-white/15 bg-white/10 p-2 shadow-lg shadow-black/30 sm:h-20 sm:w-20">
+            <div className="relative h-24 w-24 overflow-hidden rounded-full border border-white/15 bg-white/10 p-2 shadow-lg shadow-black/30 sm:h-20 sm:w-20">
               <Image
                 src="/images/logo/yene-bakery.png"
                 alt="Yene Bakery logo"
@@ -59,4 +59,3 @@ export default function MaintenancePage() {
     </section>
   );
 }
-

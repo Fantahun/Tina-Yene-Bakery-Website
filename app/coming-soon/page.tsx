@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { CountdownTimer } from "@/components/coming-soon/countdown-timer";
 
+export const revalidate = 86400
+
 export default function ComingSoonPage() {
   return (
     <section className="relative min-h-screen overflow-hidden bg-gradient-to-b from-amber-50 via-orange-50 to-rose-100">

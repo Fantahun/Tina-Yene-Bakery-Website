@@ -1,61 +1,15 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Loader2 } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { ProductCard } from "@/components/products/product-card";
 import { Button } from "@/components/ui/button";
 import type { ShopProduct } from "@/lib/shop-types";
 
-export function FeaturedProducts() {
-  const [featured, setFeatured] = useState<ShopProduct[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+interface FeaturedProductsProps {
+  products: ShopProduct[];
+}
 
-  useEffect(() => {
-    setIsLoading(true);
-
-    let isMounted = true;
-
-    const loadFeatured = async () => {
-      try {
-        const response = await fetch("/api/featured-products", {
-          cache: "no-store",
-        });
-        if (!response.ok) {
-          throw new Error("Failed to load featured products");
-        }
-        const data: ShopProduct[] = await response.json();
-        if (isMounted) {
-          setFeatured(data);
-        }
-      } catch (error) {
-        console.error(error);
-        if (isMounted) {
-          setFeatured([]);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void loadFeatured();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  if (isLoading) {
-    return (
-      <section className="bg-muted/50">
-        <div className="flex items-center justify-center mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-          <Loader2 className="h-8 w-8 animate-spin text-foreground" />
-        </div>
-      </section>
-    );
-  }
-
-  if (featured.length === 0) {
+export function FeaturedProducts({ products }: FeaturedProductsProps) {
+  if (products.length === 0) {
     return null;
   }
 
@@ -80,7 +34,7 @@ export function FeaturedProducts() {
         </div>
 
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-4">
-          {featured.map((product) => (
+          {products.map((product) => (
             <ProductCard key={product.id} product={product} />
           ))}
         </div>

@@ -1,63 +1,14 @@
-"use client";
-
-import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { Loader2 } from "lucide-react";
 
-type Category = {
-  id: string;
-  name: string;
-  slug: string;
-  image_url: string;
-};
+import type { ShopCategory } from "@/lib/shop-types";
 
-export function CategoriesSection() {
-  const [isLoading, setIsLoading] = useState(false);
-  const [categories, setCategories] = useState<Category[]>([]);
+interface CategoriesSectionProps {
+  categories: ShopCategory[];
+}
 
-  useEffect(() => {
-    setIsLoading(true);
-    let isMounted = true;
-
-    const loadCategories = async () => {
-      try {
-        const response = await fetch("/api/categories", { cache: "no-store" });
-        if (!response.ok) {
-          throw new Error("Failed to load categories");
-        }
-        const data: Category[] = await response.json();
-        if (isMounted) {
-          setCategories(data);
-        }
-      } catch (error) {
-        console.error(error);
-        if (isMounted) {
-          setCategories([]);
-        }
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    void loadCategories();
-
-    return () => {
-      isMounted = false;
-    };
-  }, []);
-
-  if (isLoading) {
-    return (
-      <section className="mx-auto max-w-7xl px-4 py-16 sm:px-6 sm:py-20 lg:px-8">
-        <div className="flex items-center justify-center py-16">
-          <Loader2 className="h-8 w-8 animate-spin text-foreground" />
-        </div>
-      </section>
-    );
-  }
-
+export function CategoriesSection({ categories }: CategoriesSectionProps) {
   if (categories.length === 0) {
     return null;
   }
