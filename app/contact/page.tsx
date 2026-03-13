@@ -40,12 +40,46 @@ export default function ContactPage() {
     e.preventDefault();
     setIsSubmitting(true);
 
-    // Simulate form submission
-    await new Promise((resolve) => setTimeout(resolve, 1200));
+    const formData = new FormData(e.currentTarget);
+    const data = {
+      name: formData.get("name"),
+      email: formData.get("email"),
+      phone: formData.get("phone"),
+      subject: formData.get("subject"),
+      message: formData.get("message"),
+    };
 
-    setIsSubmitting(false);
-    toast.success("Message sent! We'll get back to you within 24 hours.");
-    (e.target as HTMLFormElement).reset();
+    try {
+      const response = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        if (result.details && Array.isArray(result.details)) {
+          // It's a validation error
+          result.details.forEach((err: any) => {
+            toast.error(`${err.path.join('.')}: ${err.message}`);
+          });
+          return; // Stop submission
+        } else if (result.error) {
+           throw new Error(result.error);
+        }
+        throw new Error("Failed to send message");
+      }
+
+      toast.success("Message sent! We'll get back to you within 24 hours.");
+      (e.target as HTMLFormElement).reset();
+    } catch (error) {
+      console.error(error);
+      const message = error instanceof Error ? error.message : "Something went wrong. Please try again later.";
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (

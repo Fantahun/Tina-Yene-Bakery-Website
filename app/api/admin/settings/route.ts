@@ -44,6 +44,9 @@ export async function GET() {
     dashboard_pending_status_id: settings.dashboardPendingStatusId ?? null,
     dashboard_in_progress_status_id: settings.dashboardInProgressStatusId ?? null,
     dashboard_ready_status_id: settings.dashboardReadyStatusId ?? null,
+    contact_receiver_emails: settings.contactReceiverEmails ?? "",
+    contact_sender_email: settings.contactSenderEmail ?? "",
+    max_contact_submissions_per_day: settings.maxContactSubmissionsPerDay ?? 5,
   })
 }
 
@@ -62,6 +65,9 @@ export async function PUT(req: Request) {
   const dashboardPendingStatusId = body.dashboard_pending_status_id ?? null
   const dashboardInProgressStatusId = body.dashboard_in_progress_status_id ?? null
   const dashboardReadyStatusId = body.dashboard_ready_status_id ?? null
+  const contactReceiverEmails = parseString(body.contact_receiver_emails)
+  const contactSenderEmail = parseString(body.contact_sender_email)
+  const maxContactSubmissionsPerDay = Number(body.max_contact_submissions_per_day ?? 5)
 
   if (!storePhone || !storeEmail) {
     return NextResponse.json({ error: "store_phone and store_email are required" }, { status: 400 })
@@ -80,6 +86,9 @@ export async function PUT(req: Request) {
           dashboardPendingStatusId,
           dashboardInProgressStatusId,
           dashboardReadyStatusId,
+          contactReceiverEmails,
+          contactSenderEmail,
+          maxContactSubmissionsPerDay,
           updatedBy: session.user.username,
         },
       })
@@ -93,8 +102,10 @@ export async function PUT(req: Request) {
           dashboardPendingStatusId,
           dashboardInProgressStatusId,
           dashboardReadyStatusId,
+          contactReceiverEmails,
+          contactSenderEmail,
+          maxContactSubmissionsPerDay,
           createdBy: session.user.username,
-          updatedBy: session.user.username,
         },
       })
 
@@ -102,10 +113,11 @@ export async function PUT(req: Request) {
     cutoff_time: settings.cutoffTime ?? "",
     delivery_fee: Number(settings.deliveryFee),
     min_order_delivery: Number(settings.minOrderDelivery),
-    store_phone: settings.storePhone,
-    store_email: settings.storeEmail,
-    dashboard_pending_status_id: settings.dashboardPendingStatusId ?? null,
-    dashboard_in_progress_status_id: settings.dashboardInProgressStatusId ?? null,
-    dashboard_ready_status_id: settings.dashboardReadyStatusId ?? null,
+    dashboard_pending_status_id: settings.dashboardPendingStatusId,
+    dashboard_in_progress_status_id: settings.dashboardInProgressStatusId,
+    dashboard_ready_status_id: settings.dashboardReadyStatusId,
+    contact_receiver_emails: settings.contactReceiverEmails,
+    contact_sender_email: settings.contactSenderEmail,
+    max_contact_submissions_per_day: settings.maxContactSubmissionsPerDay,
   })
 }

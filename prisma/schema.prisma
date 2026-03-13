@@ -92,6 +92,9 @@ model SiteSetting {
   dashboardPendingStatus       OrderStatusEntry? @relation("DashboardPendingStatus", fields: [dashboardPendingStatusId], references: [id])
   dashboardInProgressStatus    OrderStatusEntry? @relation("DashboardInProgressStatus", fields: [dashboardInProgressStatusId], references: [id])
   dashboardReadyStatus         OrderStatusEntry? @relation("DashboardReadyStatus", fields: [dashboardReadyStatusId], references: [id])
+  contactReceiverEmails        String?
+  contactSenderEmail           String?
+  maxContactSubmissionsPerDay  Int      @default(5)
   createdBy        String?
   createdAt        DateTime @default(now())
   updatedBy        String?
@@ -193,4 +196,15 @@ model AdminLoginHistory {
   adminUser   AdminUser @relation(fields: [adminUserId], references: [id], onDelete: Cascade)
 
   @@index([adminUserId])
+}
+
+model ContactSubmission {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  phone     String?
+  subject   String?
+  message   String   @db.Text
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
 }

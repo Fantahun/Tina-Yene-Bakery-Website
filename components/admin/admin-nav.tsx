@@ -14,6 +14,7 @@ import {
   ChevronRight,
   X,
   BarChart3,
+  MessageSquare,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -25,6 +26,7 @@ const navItems = [
   { href: "/yeneAdmin/products", label: "Products", icon: Package },
   { href: "/yeneAdmin/categories", label: "Categories", icon: Menu },
   { href: "/yeneAdmin/reports", label: "Reports", icon: BarChart3 },
+  { href: "/yeneAdmin/messages", label: "Messages", icon: MessageSquare },
   { href: "/yeneAdmin/settings", label: "Settings", icon: Settings },
 ];
 

@@ -61,6 +61,7 @@
     "@reduxjs/toolkit": "^2.5.0",
     "@stripe/react-stripe-js": "^3.1.0",
     "@stripe/stripe-js": "^5.3.0",
+    "@types/nodemailer": "^7.0.11",
     "autoprefixer": "^10.4.20",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",
@@ -73,6 +74,7 @@
     "next": "16.1.6",
     "next-auth": "^4.24.13",
     "next-themes": "^0.4.6",
+    "nodemailer": "^8.0.2",
     "react": "19.2.3",
     "react-day-picker": "9.13.2",
     "react-dom": "19.2.3",
@@ -90,8 +92,8 @@
     "zod": "^3.24.1"
   },
   "devDependencies": {
-    "@eslint/js": "^9.7.0",
     "@eslint/eslintrc": "^3.3.3",
+    "@eslint/js": "^9.7.0",
     "@tailwindcss/postcss": "^4.1.13",
     "@types/node": "^22",
     "@types/react": "19.2.7",
