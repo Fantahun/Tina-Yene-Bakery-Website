@@ -7,6 +7,9 @@ import { Toaster } from "@/components/ui/sonner";
 
 import "./globals.css";
 
+// Public App Router pages export `revalidate` individually for ISR.
+// `app/yeneAdmin/**` is intentionally left dynamic and does not opt into ISR.
+
 const _geist = Geist({ subsets: ["latin"] });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 

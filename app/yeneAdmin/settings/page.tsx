@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Edit, Clock, DollarSign, MapPin, Plus, Save, Trash2 } from "lucide-react"
+import { Edit, Clock, DollarSign, MapPin, Plus, RefreshCw, Save, Trash2 } from "lucide-react"
 
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -14,12 +14,13 @@ import { EditOrderStatusDialog } from "@/components/admin/edit-order-status-dial
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { type PickupLocation, type OrderStatusEntry } from "@/lib/mock-data"
+import { PUBLIC_REVALIDATE_OPTIONS } from "@/lib/isr"
 import { toast } from "sonner"
 
 export default function AdminSettingsPage() {
   const [isSavingSettings, setIsSavingSettings] = useState(false)
   const [isSavingLocations, setIsSavingLocations] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
+  const [isRevalidating, setIsRevalidating] = useState(false)
   const [settingsError, setSettingsError] = useState<string | null>(null)
   const [locationsError, setLocationsError] = useState<string | null>(null)
   const [confirmSettingsOpen, setConfirmSettingsOpen] = useState(false)
@@ -29,6 +30,8 @@ export default function AdminSettingsPage() {
   const [selectedStatus, setSelectedStatus] = useState<OrderStatusEntry | null>(null)
   const [isAddingStatus, setIsAddingStatus] = useState(false)
   const [statusesError, setStatusesError] = useState<string | null>(null)
+  const [revalidateTarget, setRevalidateTarget] = useState<(typeof PUBLIC_REVALIDATE_OPTIONS)[number]["value"]>("all")
+  const [revalidateSlug, setRevalidateSlug] = useState("")
 
   const [settings, setSettings] = useState({
     cutoff_time: "",
@@ -45,59 +48,53 @@ export default function AdminSettingsPage() {
   const [orderStatuses, setOrderStatuses] = useState<OrderStatusEntry[]>([])
 
   const loadSettings = async () => {
-    setIsLoading(true)
     setSettingsError(null)
     try {
       const res = await fetch("/api/admin/settings")
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to load settings")
+        setSettingsError(data?.error || "Failed to load settings")
+        return
       }
       const data = await res.json()
       setSettings(data)
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load settings"
       setSettingsError(message)
-    } finally {
-      setIsLoading(false)
     }
   }
 
   const loadLocations = async () => {
-    setIsLoading(true)
     setLocationsError(null)
     try {
       const res = await fetch("/api/admin/pickup-locations")
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to load locations")
+        setLocationsError(data?.error || "Failed to load locations")
+        return
       }
       const data = (await res.json()) as PickupLocation[]
       setLocations(data)
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load locations"
       setLocationsError(message)
-    } finally {
-      setIsLoading(false)
     }
   }
 
   const loadOrderStatuses = async () => {
-    setIsLoading(true)
     setStatusesError(null)
     try {
       const res = await fetch("/api/admin/order-statuses")
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to load order statuses")
+        setStatusesError(data?.error || "Failed to load order statuses")
+        return
       }
       const data = (await res.json()) as OrderStatusEntry[]
       setOrderStatuses(data)
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to load order statuses"
       setStatusesError(message)
-    } finally {
-      setIsLoading(false)
     }
   }
 
@@ -118,7 +115,8 @@ export default function AdminSettingsPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to save settings")
+        toast.error(data?.error || "Failed to save settings")
+        return
       }
 
       const data = await res.json()
@@ -155,7 +153,8 @@ export default function AdminSettingsPage() {
 
         if (!res.ok) {
           const data = await res.json().catch(() => null)
-          throw new Error(data?.error || "Failed to save locations")
+          toast.error(data?.error || "Failed to save locations")
+          return
         }
       }
 
@@ -200,7 +199,8 @@ export default function AdminSettingsPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to delete location")
+        toast.error(data?.error || "Failed to delete location")
+        return
       }
       setLocationToDelete(null)
       await loadLocations()
@@ -222,7 +222,8 @@ export default function AdminSettingsPage() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to delete status")
+        toast.error(data?.error || "Failed to delete status")
+        return
       }
       setStatusToDelete(null)
       await loadOrderStatuses()
@@ -230,6 +231,39 @@ export default function AdminSettingsPage() {
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to delete status"
       toast.error(message)
+    }
+  }
+
+  const handleManualRevalidate = async () => {
+    setIsRevalidating(true)
+    try {
+      const response = await fetch("/api/revalidate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          target: revalidateTarget,
+          slug: revalidateTarget === "product" ? revalidateSlug : undefined,
+        }),
+      })
+
+      const data = await response.json().catch(() => null)
+      if (!response.ok) {
+        toast.error(data?.error || "Failed to revalidate public pages")
+        return
+      }
+
+      const pathLabel = Array.isArray(data?.paths) ? data.paths.join(", ") : "selected pages"
+      toast.success(`Revalidation queued for ${pathLabel}`)
+      if (revalidateTarget === "product") {
+        setRevalidateSlug("")
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Failed to revalidate public pages"
+      toast.error(message)
+    } finally {
+      setIsRevalidating(false)
     }
   }
 
@@ -562,6 +596,57 @@ export default function AdminSettingsPage() {
               <Button onClick={() => setConfirmSettingsOpen(true)} disabled={isSavingSettings} className="gap-2">
                 <Save className="h-4 w-4" />
                 {isSavingSettings ? "Saving..." : "Save Dashboard Cards"}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardHeader>
+            <CardTitle>Public Page Revalidation</CardTitle>
+            <CardDescription>
+              Trigger on-demand ISR after catalog or content updates. Visitors keep seeing the current cached page until the fresh version is ready.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <div className="space-y-2">
+                <Label htmlFor="revalidate_target">Page Target</Label>
+                <Select value={revalidateTarget} onValueChange={(value) => setRevalidateTarget(value as (typeof PUBLIC_REVALIDATE_OPTIONS)[number]["value"])}>
+                  <SelectTrigger id="revalidate_target">
+                    <SelectValue placeholder="Select page target" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {PUBLIC_REVALIDATE_OPTIONS.map((option) => (
+                      <SelectItem key={option.value} value={option.value}>
+                        {option.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="revalidate_slug">Product Slug</Label>
+                <Input
+                  id="revalidate_slug"
+                  value={revalidateSlug}
+                  onChange={(e) => setRevalidateSlug(e.target.value)}
+                  placeholder="Required only for single product pages"
+                  disabled={revalidateTarget !== "product"}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <Button
+                type="button"
+                onClick={handleManualRevalidate}
+                disabled={isRevalidating || (revalidateTarget === "product" && !revalidateSlug.trim())}
+                className="gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRevalidating ? "animate-spin" : ""}`} />
+                {isRevalidating ? "Revalidating..." : "Revalidate Public Pages"}
               </Button>
             </div>
           </CardContent>

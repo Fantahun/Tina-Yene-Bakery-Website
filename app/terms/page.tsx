@@ -4,6 +4,8 @@ import { Scale, FileText, ArrowLeft, ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
+export const revalidate = 86400
+
 export const metadata: Metadata = {
   title: "Terms of Service",
   description:

@@ -1,11 +1,33 @@
 import { notFound } from "next/navigation"
 
-import { prisma } from "@/lib/prisma"
 import { ProductDetail } from "@/components/products/product-detail"
+import { prisma } from "@/lib/prisma"
 import type { ShopProduct } from "@/lib/shop-types"
+
+export const revalidate = 86400
 
 interface ProductDetailPageProps {
   params: Promise<{ slug: string }>
+}
+
+export async function generateStaticParams() {
+  const products = await prisma.product.findMany({
+    where: {
+      isActive: true,
+      deletedAt: null,
+      category: {
+        isActive: true,
+        deletedAt: null,
+      },
+    },
+    select: {
+      slug: true,
+    },
+  })
+
+  return products.map((product) => ({
+    slug: product.slug,
+  }))
 }
 
 export default async function ProductDetailPage({ params }: ProductDetailPageProps) {

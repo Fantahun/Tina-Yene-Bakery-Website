@@ -5,6 +5,8 @@ import {Wheat, Truck, Users, HandHeart, PartyPopper, CreditCard} from "lucide-re
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 
+export const revalidate = 86400
+
 export const metadata: Metadata = {
   title: "About Us",
   description:
