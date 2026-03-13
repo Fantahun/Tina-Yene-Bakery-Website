@@ -19,8 +19,8 @@
     "lib": "lib"
   },
   "scripts": {
-    "dev": "next dev --turbo",
-    "build": "prisma generate && next build",
+    "dev": "next dev",
+    "build": "next build",
     "start": "next start",
     "lint": "eslint .",
     "postinstall": "prisma generate",
