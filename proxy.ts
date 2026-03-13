@@ -1,11 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+// Proxy replacement for legacy middleware: handles maintenance/coming-soon gating.
 const COMING_SOON_PATH = "/coming-soon";
 const MAINTENANCE_PATH = "/maintenance";
 const ALLOWED_PREFIXES = ["/_next", "/api", "/yeneAdmin"];
 
-export function middleware(request: NextRequest) {
+export default function proxy(request: NextRequest) {
   const maintenanceEnabled = process.env.NEXT_PUBLIC_MAINTENANCE_MODE === "true";
   const comingSoonEnabled = process.env.NEXT_PUBLIC_COMING_SOON === "true";
 
