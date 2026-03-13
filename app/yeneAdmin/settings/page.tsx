@@ -42,6 +42,9 @@ export default function AdminSettingsPage() {
     dashboard_pending_status_id: null as number | null,
     dashboard_in_progress_status_id: null as number | null,
     dashboard_ready_status_id: null as number | null,
+    contact_receiver_emails: "",
+    contact_sender_email: "",
+    max_contact_submissions_per_day: 5,
   })
 
   const [locations, setLocations] = useState<PickupLocation[]>([])
@@ -355,6 +358,51 @@ export default function AdminSettingsPage() {
                   value={settings.store_email}
                   onChange={(e) => setSettings({ ...settings, store_email: e.target.value })}
                 />
+              </div>
+            </div>
+
+            <Separator />
+
+            <div className="grid gap-6 sm:grid-cols-1">
+              <div className="space-y-2">
+                <Label htmlFor="contact_sender_email">Contact Sender Email (From)</Label>
+                <Input
+                  id="contact_sender_email"
+                  type="email"
+                  placeholder="noreply@yenebakery.com"
+                  value={settings.contact_sender_email}
+                  onChange={(e) => setSettings({ ...settings, contact_sender_email: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  The email address that system emails will appear to come from.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="contact_receiver_emails">Contact Receiver Emails (To)</Label>
+                <Input
+                  id="contact_receiver_emails"
+                  placeholder="admin@yenebakery.com, manager@yenebakery.com"
+                  value={settings.contact_receiver_emails}
+                  onChange={(e) => setSettings({ ...settings, contact_receiver_emails: e.target.value })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Comma-separated list of email addresses to receive contact form submissions.
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="max_contact_submissions_per_day">Daily Submission Limit (Per Email)</Label>
+                <Input
+                  id="max_contact_submissions_per_day"
+                  type="number"
+                  min="1"
+                  value={settings.max_contact_submissions_per_day}
+                  onChange={(e) => setSettings({ ...settings, max_contact_submissions_per_day: Number(e.target.value) })}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Maximum number of messages a single email address can send per day (to prevent spam).
+                </p>
               </div>
             </div>
 
