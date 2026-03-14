@@ -2,7 +2,7 @@
 @tailwind components;
 @tailwind utilities;
 
-/* Custom Sonner toast tweaks */
+/* Custom toast tweaks */
 .toaster[data-sonner-toaster] {
   /* Move close button from top-left to top-right */
   --toast-close-button-start: unset;

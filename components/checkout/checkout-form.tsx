@@ -180,6 +180,9 @@ export function CheckoutForm() {
         "YeneBakery_checkout_data",
         JSON.stringify(orderData),
       );
+      
+      // Clear any previous payment session cache since we are starting a new checkout
+      sessionStorage.removeItem("YeneBakery_stripe_client_secret");
 
       // Redirect to embedded checkout page
       router.push("/checkout/payment");

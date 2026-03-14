@@ -135,6 +135,8 @@ model Order {
   orderNotes         String?
   orderStatusId      Int
   paymentStatus      PaymentStatus     @default(pending)
+  stripeSessionId    String?           @unique
+  stripePaymentIntentId String?        @unique
   createdBy          String?
   createdAt          DateTime          @default(now())
   updatedBy          String?

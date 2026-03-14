@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, Suspense } from "react";
+import { useEffect, useState, Suspense, useRef } from "react";
 import { useRouter } from "next/navigation";
 import {
   EmbeddedCheckout,
@@ -21,8 +21,27 @@ function PaymentContent() {
   const router = useRouter();
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Use a ref to track if we've already started initialization to prevent duplicates
+  // in React Strict Mode or due to fast re-renders
+  const initializationStarted = useRef(false);
 
   useEffect(() => {
+    // If we already have a secret in state, don't do anything
+    if (clientSecret) return;
+
+    // Check if we already have a client secret locally or cached
+    const existingSecret = sessionStorage.getItem("YeneBakery_stripe_client_secret");
+    if (existingSecret) {
+        setClientSecret(existingSecret);
+        return;
+    }
+
+    // Prevent double invocation
+    if (initializationStarted.current) {
+        return;
+    }
+    initializationStarted.current = true;
+
     const initCheckout = async () => {
       try {
         console.log("[YeneBakery] Starting checkout initialization");
@@ -66,6 +85,13 @@ function PaymentContent() {
           "[YeneBakery] Creating checkout session with total:",
           data.total,
         );
+
+        // Prevent double submission if effect runs twice rapidly (race condition)
+        // Note: Strict Mode unmounts and remounts, so local variables reset.
+        // We rely on session storage check above for subsequent mounts.
+        // But for race condition in same mount... let's check sessionStorage again just in case another instance wrote it?
+        // Actually, just proceeding is fine if we cache the result immediately.
+
         const result = await createCheckoutSession(sessionData);
         console.log(
           "[YeneBakery] Checkout session result:",
@@ -74,11 +100,15 @@ function PaymentContent() {
 
         if (result?.clientSecret) {
           console.log("[YeneBakery] Client secret received, setting state");
+          sessionStorage.setItem("YeneBakery_stripe_client_secret", result.clientSecret);
           setClientSecret(result.clientSecret);
         } else {
           throw new Error("No client secret returned from Stripe");
         }
       } catch (err) {
+        // If it fails, allow retrying (reset ref? probably risky if it was a race condition, but for errors safe)
+        initializationStarted.current = false;
+        
         console.error("[YeneBakery] Error initializing checkout:", err);
         const errorMessage =
           err instanceof Error ? err.message : "Unknown error";
@@ -88,7 +118,7 @@ function PaymentContent() {
     };
 
     initCheckout();
-  }, [router]);
+  }, [router, clientSecret]);
 
   if (error) {
     return (
