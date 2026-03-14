@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import {
   CheckCircle2,
+  XCircle, // Add XCircle
   CalendarDays,
   MapPin,
   Truck,
@@ -15,7 +16,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
-import { getCheckoutSession } from "@/app/actions/stripe";
+import { getOrderFromSession } from "@/app/actions/stripe"; // Changed import
 import { useAppDispatch } from "@/store/hooks";
 import { clearCart } from "@/store/cart-slice";
 
@@ -51,86 +52,78 @@ function SuccessContent() {
   const dispatch = useAppDispatch();
   const [order, setOrder] = useState<OrderData | null>(null);
   const [isLoading, setLoading] = useState(true);
+  const [paymentFailed, setPaymentFailed] = useState(false); // Add this state
 
   useEffect(() => {
     const verifyAndLoadOrder = async () => {
       const sessionId = searchParams.get("session_id");
 
       if (!sessionId) {
-        const storedOrder = sessionStorage.getItem("YeneBakery_last_order");
-        if (storedOrder) {
-          try {
-            setOrder(JSON.parse(storedOrder));
-          } catch {
-            router.push("/");
-            return;
-          }
-        } else {
+          // If no session ID, we can't verify the order from DB.
+          // Fallback to session storage is insecure/unreliable for "Order Confirmed" page 
+          // that claims payment success.
+          // Better to redirect to home or cart.
           router.push("/");
           return;
-        }
-        setLoading(false);
-        return;
       }
 
       try {
-        // Verify payment with Stripe
-        const session = await getCheckoutSession(sessionId);
-
-        if (session.payment_status !== "paid") {
-          router.push("/checkout");
-          return;
+        const dbOrder = await getOrderFromSession(sessionId);
+        
+        if (dbOrder.paymentStatus !== "paid") {
+            console.warn("Order found but payment status is:", dbOrder.paymentStatus);
+            setPaymentFailed(true);
+            setLoading(false);
+            return;
         }
 
-        // Load order data from session storage
-        const storedData = sessionStorage.getItem("YeneBakery_checkout_data");
-        if (!storedData) {
-          router.push("/");
-          return;
-        }
-
-        const data = JSON.parse(storedData);
-        const confirmationNumber = `YB-${Date.now().toString(36).toUpperCase()}`;
-
+        // Map DB order to OrderData interface for display
         const orderData: OrderData = {
-          confirmationNumber,
-          customerName: data.customerName,
-          customerEmail: data.customerEmail,
-          customerPhone: data.customerPhone,
-          fulfillmentMethod: data.fulfillmentMethod,
-          fulfillmentDate: data.fulfillmentDate,
-          pickupLocation: data.pickupLocation,
-          deliveryAddress: data.deliveryAddress,
-          deliveryCity: data.deliveryCity,
-          deliveryState: data.deliveryState,
-          deliveryZip: data.deliveryZip,
-          orderNotes: data.orderNotes,
-          items: data.items,
-          subtotal: data.subtotal,
-          deliveryFee: data.deliveryFee,
-          total: data.total,
+            confirmationNumber: dbOrder.confirmationNumber,
+            customerName: dbOrder.customerName,
+            customerEmail: dbOrder.customerEmail,
+            customerPhone: dbOrder.customerPhone,
+            fulfillmentMethod: dbOrder.fulfillmentMethod === 'pickup' ? 'pickup' : 'delivery',
+            fulfillmentDate: new Date(dbOrder.fulfillmentDate).toISOString(),
+            pickupLocation: dbOrder.pickupLocation ? {
+                name: dbOrder.pickupLocation.name,
+                address: dbOrder.pickupLocation.address
+            } : null,
+            deliveryAddress: dbOrder.deliveryAddress || undefined,
+            // We store full address in DB, splitting might be needed if UI demands it, 
+            // but currently UI just displays address.
+            // Let's just put full address in deliveryAddress
+            deliveryCity: "", // Not stored separately in DB string
+            deliveryState: "",
+            deliveryZip: "",
+            orderNotes: dbOrder.orderNotes || undefined,
+            items: dbOrder.items.map((i: any) => ({
+                name: i.productName,
+                quantity: i.quantity,
+                price: Number(i.unitPrice),
+                lineTotal: Number(i.lineTotal)
+            })),
+            subtotal: Number(dbOrder.subtotal),
+            deliveryFee: Number(dbOrder.deliveryFee),
+            total: Number(dbOrder.total)
         };
 
-        // Store final order for display
-        sessionStorage.setItem(
-          "YeneBakery_last_order",
-          JSON.stringify(orderData),
-        );
-        sessionStorage.removeItem("YeneBakery_checkout_data");
-
-        // Clear cart
-        dispatch(clearCart());
-
         setOrder(orderData);
+        
+        // Clear client side data
+        sessionStorage.removeItem("YeneBakery_checkout_data");
+        dispatch(clearCart());
+        
       } catch (error) {
         console.error("[YeneBakery] Error verifying payment:", error);
-        router.push("/checkout");
+        // If we can't verify, don't show success
+        router.push("/checkout"); 
       } finally {
         setLoading(false);
       }
     };
 
-    verifyAndLoadOrder();
+    void verifyAndLoadOrder();
   }, [router, searchParams, dispatch]);
 
   if (isLoading) {
@@ -139,11 +132,33 @@ function SuccessContent() {
         <div className="flex flex-col items-center gap-4">
           <Loader2 className="h-12 w-12 animate-spin text-primary" />
           <p className="text-lg text-muted-foreground">
-            Confirming your order...
+            Verifying your payment...
           </p>
         </div>
       </div>
     );
+  }
+
+  if (paymentFailed) {
+      return (
+        <div className="mx-auto flex min-h-[60vh] max-w-7xl flex-col items-center justify-center px-4 py-16 text-center">
+          <div className="rounded-full bg-red-100 p-3">
+            <XCircle className="h-10 w-10 text-red-600" />
+          </div>
+          <h1 className="mt-4 text-2xl font-bold text-foreground">Payment Failed</h1>
+          <p className="mt-2 text-muted-foreground">
+            We were unable to process your payment. Your order has not been finalized.
+          </p>
+          <div className="mt-6 flex gap-4">
+            <Button asChild variant="outline">
+              <Link href="/cart">Return to Cart</Link>
+            </Button>
+            <Button asChild>
+              <Link href="/checkout/payment">Try Again</Link>
+            </Button>
+          </div>
+        </div>
+      );
   }
 
   if (!order) {

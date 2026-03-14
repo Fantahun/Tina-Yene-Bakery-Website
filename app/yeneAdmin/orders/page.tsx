@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { Calendar, Eye, Filter, MapPin, Package, Search, Truck } from "lucide-react"
+import { Activity, Calendar, DollarSign, Eye, Filter, MapPin, Package, Search, Truck } from "lucide-react"
 
 import { OrderDetailsDialog } from "@/components/admin/order-details-dialog"
 import { Badge } from "@/components/ui/badge"
@@ -19,12 +19,23 @@ const statusColors: Record<string, string> = {
   cancelled: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
 }
 
+const paymentStatusColors: Record<string, string> = {
+  pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-200",
+  paid: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200",
+  failed: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-200",
+  refunded: "bg-purple-100 text-purple-800 dark:bg-purple-900 dark:text-purple-200",
+}
+
 function normalizeStatus(value: string) {
   return value.toLowerCase().replace(/\s+/g, "_")
 }
 
 function getStatusClass(name: string) {
   return statusColors[normalizeStatus(name)] ?? "bg-muted text-foreground"
+}
+
+function getPaymentStatusClass(status: string) {
+  return paymentStatusColors[status.toLowerCase()] ?? "bg-gray-100 text-gray-800"
 }
 
 const getDateInputValue = (offsetDays = 0) => {
@@ -241,7 +252,12 @@ export default function AdminOrdersPage() {
                       <div className="flex items-center gap-2">
                         <p className="font-semibold text-foreground">{order.confirmation_number}</p>
                         <Badge className={getStatusClass(order.order_status)} variant="secondary">
+                          <Activity className="mr-1 h-3 w-3" />
                           {order.order_status}
+                        </Badge>
+                        <Badge className={getPaymentStatusClass(order.payment_status)} variant="outline">
+                          <DollarSign className="mr-1 h-3 w-3" />
+                          {order.payment_status}
                         </Badge>
                       </div>
                       <p className="mt-1 text-sm text-muted-foreground">

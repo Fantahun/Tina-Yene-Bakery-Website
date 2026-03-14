@@ -301,6 +301,30 @@ export function OrderDetailsDialog({
               </Badge>
             </div>
           </div>
+
+          {(order.stripeSessionId || order.stripePaymentIntentId) && (
+            <div className="space-y-3 rounded-lg border p-4">
+              <h3 className="font-semibold text-foreground text-sm">Payment Verification</h3>
+              <div className="space-y-3">
+                {order.stripeSessionId && (
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">Stripe Session ID</span>
+                    <p className="font-mono text-xs break-all text-muted-foreground bg-muted p-2 rounded">
+                      {order.stripeSessionId}
+                    </p>
+                  </div>
+                )}
+                {order.stripePaymentIntentId && (
+                  <div className="space-y-1">
+                    <span className="text-xs font-medium text-muted-foreground">Payment Intent ID</span>
+                    <p className="font-mono text-xs break-all text-muted-foreground bg-muted p-2 rounded">
+                      {order.stripePaymentIntentId}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>

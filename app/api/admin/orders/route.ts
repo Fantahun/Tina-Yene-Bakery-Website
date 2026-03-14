@@ -21,19 +21,21 @@ function mapOrder(order: {
   fulfillmentDate: Date
   pickupLocation: { name: string } | null
   deliveryAddress: string | null
-  subtotal: number
-  deliveryFee: number
-  total: number
+  subtotal: any
+  deliveryFee: any
+  total: any
   orderNotes: string | null
   paymentStatus: string
+  stripeSessionId: string | null
+  stripePaymentIntentId: string | null
   createdAt: Date
   orderStatusId: number
   orderStatus: { name: string }
   items: Array<{
     productName: string
     quantity: number
-    unitPrice: number
-    lineTotal: number
+    unitPrice: any
+    lineTotal: any
   }>
 }) {
   return {
@@ -54,6 +56,8 @@ function mapOrder(order: {
     order_status: order.orderStatus.name,
     order_status_id: order.orderStatusId,
     payment_status: order.paymentStatus,
+    stripeSessionId: order.stripeSessionId ?? undefined,
+    stripePaymentIntentId: order.stripePaymentIntentId ?? undefined,
     created_at: order.createdAt.toISOString(),
     items: order.items.map((item) => ({
       product_name: item.productName,
@@ -143,7 +147,7 @@ export async function PATCH(req: Request) {
     where: { id: body.id },
     data: {
       orderStatusId: body.order_status_id,
-      updatedBy: session.user.username,
+      updatedBy: session.user?.username,
     },
     include: {
       pickupLocation: { select: { name: true } },
@@ -161,4 +165,3 @@ export async function PATCH(req: Request) {
 
   return NextResponse.json(mapOrder(updated))
 }
-

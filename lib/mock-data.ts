@@ -321,6 +321,8 @@ export interface Order {
   order_status: OrderStatus;
   order_status_id?: number;
   payment_status: PaymentStatus;
+  stripeSessionId?: string;
+  stripePaymentIntentId?: string;
   created_at: string;
   items: Array<{
     product_name: string;
