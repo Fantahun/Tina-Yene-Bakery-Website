@@ -38,7 +38,7 @@ export function Header() {
             {/*<span className="text-2xl font-bold tracking-tight text-foreground">*/}
             {/*  Yene<span className="text-primary">Bakery</span>*/}
             {/*</span>*/}
-            <Image src="/images/logo/yene-bakery-logo-nav.jpg"
+            <Image src="/images/logo/yene-bakery-logo-nav.png"
                    alt="YeneBakery"
                    width={170}
                    height={44}

@@ -40,7 +40,7 @@ export function MobileNav({ open, onClose }: MobileNavProps) {
         <SheetHeader className="border-b border-border p-6">
           <SheetTitle className="text-left text-xl font-bold tracking-tight">
             <Image
-              src="/images/logo/yene-bakery-logo-nav.jpg"
+              src="/images/logo/yene-bakery-logo-nav.png"
               alt="YeneBakery"
               width={170}
               height={44}

@@ -8,9 +8,8 @@ import {
   Mail,
   Clock,
   Loader2,
-  Facebook,
-  Instagram,
 } from "lucide-react";
+import { FaFacebook, FaInstagram } from "react-icons/fa";
 import { Separator } from "@/components/ui/separator";
 import { useEffect, useState } from "react";
 
@@ -71,16 +70,18 @@ export function Footer() {
         <div className="grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-4">
           {/* Brand */}
           <div className="flex flex-col gap-4">
-            <span className="text-xl font-bold tracking-tight">
+         <div>
+              <span className="text-xl font-bold tracking-tight">
               Yene<span className="text-primary">Bakery</span>
             </span>
-            <p className="text-sm leading-relaxed text-muted-foreground">
-              Handcrafted cakes and pastries made with care. From our kitchen to
-              your table, every bite is created to bring joy.
-            </p>
+           <p className="text-sm leading-relaxed text-muted-foreground">
+             Handcrafted cakes and pastries made with care. From our kitchen to
+             your table, every bite is created to bring joy.
+           </p>
 
-          {/*  Follow us - social media links*/
-            <div className="pt-1">
+
+            {/*Follow us - social media links*/}
+            <div className="pt-3">
               <h4 className="text-sm font-semibold text-foreground">Follow Us</h4>
               <div className="mt-2 flex items-center gap-3">
                 <a
@@ -88,9 +89,9 @@ export function Footer() {
                     target="_blank"
                     rel="noopener noreferrer"
                     aria-label="Follow YeneBakery on Facebook"
-                    className="rounded-full p-2 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="rounded-full text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <Facebook className="h-5 w-5" />
+                  <FaFacebook className="h-5 w-5" />
                 </a>
                 <a
                     href={SOCIAL_LINKS.instagram}
@@ -99,10 +100,11 @@ export function Footer() {
                     aria-label="Follow YeneBakery on Instagram"
                     className="rounded-full p-2 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <Instagram className="h-5 w-5" />
+                  <FaInstagram className="h-5 w-5" />
                 </a>
               </div>
             </div>
+         </div>
           </div>
 
           {/* Quick Links */}

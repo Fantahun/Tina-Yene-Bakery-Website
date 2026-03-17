@@ -9,9 +9,8 @@ import {
   Clock,
   Send,
   Loader2,
-  Facebook,
-  Instagram,
 } from "lucide-react";
+import { FaFacebook, FaInstagram } from "react-icons/fa";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -178,7 +177,7 @@ export default function ContactPage() {
                   aria-label="Follow YeneBakery on Facebook"
                   className="rounded-full border border-border p-2 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <Facebook className="h-5 w-5" />
+                  <FaFacebook className="h-5 w-5" />
                 </a>
                 <a
                   href={SOCIAL_LINKS.instagram}
@@ -187,7 +186,7 @@ export default function ContactPage() {
                   aria-label="Follow YeneBakery on Instagram"
                   className="rounded-full border border-border p-2 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                 >
-                  <Instagram className="h-5 w-5" />
+                  <FaInstagram className="h-5 w-5" />
                 </a>
               </div>
             </div>

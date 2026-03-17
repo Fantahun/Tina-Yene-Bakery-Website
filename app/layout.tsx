@@ -58,7 +58,7 @@ export const metadata: Metadata = {
     locale: "en_US",
     images: [
       {
-        url: "/images/logo/yene-bakery-logo-nav.jpg",
+        url: "/images/logo/yene-bakery-logo-nav.png",
         width:1200,
         height:630,
         alt: "YeneBakery logo",
@@ -69,7 +69,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title,
     description,
-    images: ["/images/logo/yene-bakery-logo-nav.jpg"],
+    images: ["/images/logo/yene-bakery-logo-nav.png"],
   },
   robots: {
     index: true,
@@ -109,8 +109,8 @@ const bakeryJsonLd = {
   alternateName: ["Yene Bakery", "yenebakery"],
   url: siteUrl,
   description,
-  image: `${siteUrl}/images/logo/yene-bakery-logo-nav.jpg`,
-  logo: `${siteUrl}/images/logo/yene-bakery-logo-nav.jpg`,
+  image: `${siteUrl}/images/logo/yene-bakery-logo-nav.png`,
+  logo: `${siteUrl}/images/logo/yene-bakery-logo-nav.png`,
   telephone: "+1-425-312-3140",
   email: "hello@yenebakery.com",
   openingHoursSpecification: [
