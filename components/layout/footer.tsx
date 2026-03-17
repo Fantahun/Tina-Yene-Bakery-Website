@@ -2,7 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { MapPin, Phone, Mail, Clock, Loader2 } from "lucide-react";
+import {
+  MapPin,
+  Phone,
+  Mail,
+  Clock,
+  Loader2,
+  Facebook,
+  Instagram,
+} from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useEffect, useState } from "react";
 
@@ -12,6 +20,12 @@ type Category = {
   slug: string;
   image_url: string;
 };
+
+const SOCIAL_LINKS = {
+  facebook: "https://www.facebook.com/yenebakery",
+  instagram: "https://www.instagram.com/yenebakery",
+};
+
 export function Footer() {
   const pathname = usePathname();
 
@@ -64,6 +78,31 @@ export function Footer() {
               Handcrafted cakes and pastries made with care. From our kitchen to
               your table, every bite is created to bring joy.
             </p>
+
+          {/*  Follow us - social media links*/
+            <div className="pt-1">
+              <h4 className="text-sm font-semibold text-foreground">Follow Us</h4>
+              <div className="mt-2 flex items-center gap-3">
+                <a
+                    href={SOCIAL_LINKS.facebook}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Follow YeneBakery on Facebook"
+                    className="rounded-full p-2 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <Facebook className="h-5 w-5" />
+                </a>
+                <a
+                    href={SOCIAL_LINKS.instagram}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label="Follow YeneBakery on Instagram"
+                    className="rounded-full p-2 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <Instagram className="h-5 w-5" />
+                </a>
+              </div>
+            </div>
           </div>
 
           {/* Quick Links */}
@@ -103,12 +142,6 @@ export function Footer() {
               Contact Us
             </h3>
             <div className="flex flex-col gap-3">
-              {/* <div className="flex items-start gap-2">
-                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-                <span className="text-sm text-muted-foreground">
-                  When needed our address can be put here
-                </span>
-              </div> */}
               <div className="flex items-center gap-2">
                 <Phone className="h-4 w-4 shrink-0 text-primary" />
                 <span className="text-sm text-muted-foreground">
@@ -119,6 +152,12 @@ export function Footer() {
                 <Mail className="h-4 w-4 shrink-0 text-primary" />
                 <span className="text-sm text-muted-foreground">
                   hello@YeneBakery.com
+                </span>
+              </div>
+              <div className="flex items-start gap-2">
+                <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+                <span className="text-sm text-muted-foreground">
+                  Seattle, WA
                 </span>
               </div>
             </div>

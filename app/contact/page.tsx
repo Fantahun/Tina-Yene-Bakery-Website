@@ -2,7 +2,16 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { MapPin, Phone, Mail, Clock, Send, Loader2 } from "lucide-react";
+import {
+  MapPin,
+  Phone,
+  Mail,
+  Clock,
+  Send,
+  Loader2,
+  Facebook,
+  Instagram,
+} from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,11 +20,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 
 const contactInfo = [
-  // {
-  //   icon: MapPin,
-  //   label: "Visit Us",
-  //   // lines: ["when needed we will put our address here"],
-  // },
   {
     icon: Phone,
     label: "Call Us",
@@ -27,11 +31,21 @@ const contactInfo = [
     lines: ["hello@YeneBakery.com"],
   },
   {
+    icon: MapPin,
+    label: "Address",
+    lines: ["Seattle, WA"],
+  },
+  {
     icon: Clock,
     label: "Hours",
     lines: ["Mon-Fri: 7am - 7pm", "Saturday: 8am - 6pm", "Sunday: 8am - 4pm"],
   },
 ];
+
+const SOCIAL_LINKS = {
+  facebook: "https://www.facebook.com/yenebakery",
+  instagram: "https://www.instagram.com/yenebakery",
+};
 
 export default function ContactPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -149,6 +163,33 @@ export default function ContactPage() {
                   </div>
                 );
               })}
+            </div>
+
+            <div className="mt-8 border-t border-border pt-6">
+              <h3 className="text-sm font-semibold text-foreground">Follow Us</h3>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Stay updated with our latest cakes and pastries.
+              </p>
+              <div className="mt-3 flex items-center gap-3">
+                <a
+                  href={SOCIAL_LINKS.facebook}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Follow YeneBakery on Facebook"
+                  className="rounded-full border border-border p-2 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <Facebook className="h-5 w-5" />
+                </a>
+                <a
+                  href={SOCIAL_LINKS.instagram}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label="Follow YeneBakery on Instagram"
+                  className="rounded-full border border-border p-2 text-muted-foreground transition-colors hover:text-primary focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                >
+                  <Instagram className="h-5 w-5" />
+                </a>
+              </div>
             </div>
           </div>
 
