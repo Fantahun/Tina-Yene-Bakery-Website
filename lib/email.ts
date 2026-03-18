@@ -113,8 +113,8 @@ export async function sendOrderConfirmationEmail(
     <body>
       <div class="container">
         <div class="header">
-          <!-- Replace with actual logo URL -->
-           <img src="https://yene-bakery.com/images/logo.png" alt="Yene Bakery" class="logo" style="max-height: 80px;">
+          <!-- Logo URL for email -->
+           <img src="https://www.yenebakery.com/images/logo/yene-bakery.png" alt="Yene Bakery" class="logo" style="max-height: 80px;">
            <h1>Order Confirmed!</h1>
            <p>Thank you for your order, ${order.customerName}. We've received it and will start preparing it soon.</p>
            <p style="font-size: 14px; color: #6b7280;">Order #${order.confirmationNumber}</p>
