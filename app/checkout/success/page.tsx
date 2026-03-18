@@ -13,8 +13,16 @@ import {
   Package,
   ArrowRight,
   Loader2,
+  Copy,
+  Check,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { Separator } from "@/components/ui/separator";
 import { getOrderFromSession } from "@/app/actions/stripe"; // Changed import
 import { useAppDispatch } from "@/store/hooks";
@@ -53,6 +61,15 @@ function SuccessContent() {
   const [order, setOrder] = useState<OrderData | null>(null);
   const [isLoading, setLoading] = useState(true);
   const [paymentFailed, setPaymentFailed] = useState(false); // Add this state
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyOrderNumber = () => {
+    if (order?.confirmationNumber) {
+      navigator.clipboard.writeText(order.confirmationNumber);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
 
   useEffect(() => {
     const verifyAndLoadOrder = async () => {
@@ -190,9 +207,33 @@ function SuccessContent() {
         <p className="mt-2 text-muted-foreground">
           Thank you, {order.customerName}. Your order has been placed.
         </p>
-        <p className="mt-1 text-lg font-semibold text-primary">
-          Confirmation: {order.confirmationNumber}
-        </p>
+        <div className="mt-1 flex items-center justify-center gap-2">
+          <p className="text-lg font-semibold text-primary">
+            Order NO: {order.confirmationNumber}
+          </p>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-6 w-6"
+                  onClick={handleCopyOrderNumber}
+                  aria-label="Copy Order Number"
+                >
+                  {copied ? (
+                    <Check className="h-4 w-4 text-green-600" />
+                  ) : (
+                    <Copy className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{copied ? "Order Number Copied" : "Copy Order Number"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
       </div>
 
       {/* Order Details Card */}
