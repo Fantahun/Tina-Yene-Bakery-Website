@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getServerSession } from "next-auth";
+import { Prisma } from "@prisma/client";
 
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -30,7 +31,7 @@ const selectProductForAdmin = {
     orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
   },
   category: { select: { name: true } },
-};
+} satisfies Prisma.ProductSelect;
 
 function slugify(value: string) {
   return value
@@ -128,6 +129,7 @@ export async function POST(req: Request) {
   const session = await requireAdminSession();
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = session.user!.username;
 
   const body = await req.json().catch(() => null);
   if (!body)
@@ -192,8 +194,8 @@ export async function POST(req: Request) {
             create: sizes,
           }
         : undefined,
-      createdBy: session.user.username,
-      updatedBy: session.user.username,
+      createdBy: actor,
+      updatedBy: actor,
     },
     select: selectProductForAdmin,
   });
@@ -231,6 +233,7 @@ export async function PUT(req: Request) {
   const session = await requireAdminSession();
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = session.user!.username;
 
   const body = await req.json().catch(() => null);
   if (!body || (!body.id && body.id !== 0)) {
@@ -313,7 +316,7 @@ export async function PUT(req: Request) {
               },
             }
           : {}),
-      updatedBy: session.user.username,
+      updatedBy: actor,
     },
     select: selectProductForAdmin,
   });
@@ -348,6 +351,7 @@ export async function DELETE(req: Request) {
   const session = await requireAdminSession();
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = session.user!.username;
 
   const body = await req.json().catch(() => null);
   if (!body || (!body.id && body.id !== 0)) {
@@ -370,7 +374,7 @@ export async function DELETE(req: Request) {
     data: {
       deletedAt: new Date(),
       isActive: false,
-      updatedBy: session.user.username,
+      updatedBy: actor,
     },
   });
 

@@ -25,7 +25,59 @@ function loadCartFromStorage(): CartItem[] {
   if (typeof window === "undefined") return [];
   try {
     const stored = localStorage.getItem("YeneBakery_cart");
-    return stored ? JSON.parse(stored) : [];
+    if (!stored) return [];
+
+    const parsed = JSON.parse(stored) as Array<Partial<CartItem>>;
+    if (!Array.isArray(parsed)) return [];
+
+    return parsed
+      .map((item) => {
+        if (
+          !item ||
+          typeof item.id !== "number" ||
+          typeof item.name !== "string"
+        ) {
+          return null;
+        }
+
+        const sizeSuffix = item.size_id ? `-size-${item.size_id}` : "";
+        const fallbackSlug = item.name
+          .toLowerCase()
+          .trim()
+          .replace(/[^a-z0-9\s-]/g, "")
+          .replace(/\s+/g, "-")
+          .replace(/-+/g, "-");
+
+        return {
+          cart_key: item.cart_key ?? `product-${item.id}${sizeSuffix}`,
+          id: item.id,
+          slug: item.slug ?? fallbackSlug,
+          name: item.name,
+          price: typeof item.price === "number" ? item.price : 0,
+          image_url:
+            typeof item.image_url === "string"
+              ? item.image_url
+              : "/placeholder.jpg",
+          quantity:
+            typeof item.quantity === "number" ? Math.max(1, item.quantity) : 1,
+          size_id: item.size_id,
+          size_name: item.size_name,
+          serves: item.serves,
+          prep_lead_time_days:
+            typeof item.prep_lead_time_days === "number"
+              ? item.prep_lead_time_days
+              : 0,
+          pickup_allowed:
+            typeof item.pickup_allowed === "boolean"
+              ? item.pickup_allowed
+              : true,
+          delivery_allowed:
+            typeof item.delivery_allowed === "boolean"
+              ? item.delivery_allowed
+              : true,
+        } as CartItem;
+      })
+      .filter((item): item is CartItem => item !== null);
   } catch {
     return [];
   }

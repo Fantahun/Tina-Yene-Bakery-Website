@@ -1,33 +1,34 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 async function requireAdminSession() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.username) return null
-  return session
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.username) return null;
+  return session;
 }
 
 function parseString(value: unknown) {
-  if (typeof value !== "string") return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
 }
 
 function parseBoolean(value: unknown) {
-  return typeof value === "boolean" ? value : undefined
+  return typeof value === "boolean" ? value : undefined;
 }
 
 export async function GET() {
-  const session = await requireAdminSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireAdminSession();
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const statuses = await prisma.orderStatusEntry.findMany({
     where: { deletedAt: null },
     orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
-  })
+  });
 
   const mapped = statuses.map((status) => ({
     id: status.id,
@@ -35,30 +36,35 @@ export async function GET() {
     description: status.description ?? "",
     sort_order: status.sortOrder,
     is_active: status.isActive,
-  }))
+  }));
 
-  return NextResponse.json(mapped)
+  return NextResponse.json(mapped);
 }
 
 export async function POST(req: Request) {
-  const session = await requireAdminSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireAdminSession();
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = session.user!.username;
 
-  const body = await req.json().catch(() => null)
-  if (!body) return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+  const body = await req.json().catch(() => null);
+  if (!body)
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
 
-  const name = parseString(body.name)
-  const description = parseString(body.description)
-  const sortOrder = Number(body.sort_order ?? body.sortOrder ?? 0)
-  const isActive = parseBoolean(body.is_active ?? body.isActive)
+  const name = parseString(body.name);
+  const description = parseString(body.description);
+  const sortOrder = Number(body.sort_order ?? body.sortOrder ?? 0);
+  const isActive = parseBoolean(body.is_active ?? body.isActive);
 
   if (!name) {
-    return NextResponse.json({ error: "name is required" }, { status: 400 })
+    return NextResponse.json({ error: "name is required" }, { status: 400 });
   }
 
-  const existing = await prisma.orderStatusEntry.findUnique({ where: { name } })
+  const existing = await prisma.orderStatusEntry.findUnique({
+    where: { name },
+  });
   if (existing) {
-    return NextResponse.json({ error: "name already exists" }, { status: 409 })
+    return NextResponse.json({ error: "name already exists" }, { status: 409 });
   }
 
   const status = await prisma.orderStatusEntry.create({
@@ -67,10 +73,10 @@ export async function POST(req: Request) {
       description,
       sortOrder: Number.isFinite(sortOrder) ? sortOrder : 0,
       isActive: isActive ?? true,
-      createdBy: session.user.username,
-      updatedBy: session.user.username,
+      createdBy: actor,
+      updatedBy: actor,
     },
-  })
+  });
 
   return NextResponse.json(
     {
@@ -81,32 +87,45 @@ export async function POST(req: Request) {
       is_active: status.isActive,
     },
     { status: 201 },
-  )
+  );
 }
 
 export async function PUT(req: Request) {
-  const session = await requireAdminSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireAdminSession();
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = session.user!.username;
 
-  const body = await req.json().catch(() => null)
+  const body = await req.json().catch(() => null);
   if (!body || (!body.id && body.id !== 0)) {
-    return NextResponse.json({ error: "Status id is required" }, { status: 400 })
+    return NextResponse.json(
+      { error: "Status id is required" },
+      { status: 400 },
+    );
   }
 
-  const id = Number(body.id)
+  const id = Number(body.id);
   if (!Number.isInteger(id)) {
-    return NextResponse.json({ error: "Status id is invalid" }, { status: 400 })
+    return NextResponse.json(
+      { error: "Status id is invalid" },
+      { status: 400 },
+    );
   }
 
-  const name = parseString(body.name)
-  const description = parseString(body.description)
-  const sortOrder = Number(body.sort_order ?? body.sortOrder)
-  const isActive = parseBoolean(body.is_active ?? body.isActive)
+  const name = parseString(body.name);
+  const description = parseString(body.description);
+  const sortOrder = Number(body.sort_order ?? body.sortOrder);
+  const isActive = parseBoolean(body.is_active ?? body.isActive);
 
   if (name) {
-    const existing = await prisma.orderStatusEntry.findUnique({ where: { name } })
+    const existing = await prisma.orderStatusEntry.findUnique({
+      where: { name },
+    });
     if (existing && existing.id !== id) {
-      return NextResponse.json({ error: "name already exists" }, { status: 409 })
+      return NextResponse.json(
+        { error: "name already exists" },
+        { status: 409 },
+      );
     }
   }
 
@@ -117,9 +136,9 @@ export async function PUT(req: Request) {
       ...(description !== null ? { description } : {}),
       ...(Number.isFinite(sortOrder) ? { sortOrder } : {}),
       ...(isActive !== undefined ? { isActive } : {}),
-      updatedBy: session.user.username,
+      updatedBy: actor,
     },
-  })
+  });
 
   return NextResponse.json({
     id: status.id,
@@ -127,21 +146,29 @@ export async function PUT(req: Request) {
     description: status.description ?? "",
     sort_order: status.sortOrder,
     is_active: status.isActive,
-  })
+  });
 }
 
 export async function DELETE(req: Request) {
-  const session = await requireAdminSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireAdminSession();
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = session.user!.username;
 
-  const body = await req.json().catch(() => null)
+  const body = await req.json().catch(() => null);
   if (!body || (!body.id && body.id !== 0)) {
-    return NextResponse.json({ error: "Status id is required" }, { status: 400 })
+    return NextResponse.json(
+      { error: "Status id is required" },
+      { status: 400 },
+    );
   }
 
-  const id = Number(body.id)
+  const id = Number(body.id);
   if (!Number.isInteger(id)) {
-    return NextResponse.json({ error: "Status id is invalid" }, { status: 400 })
+    return NextResponse.json(
+      { error: "Status id is invalid" },
+      { status: 400 },
+    );
   }
 
   await prisma.orderStatusEntry.update({
@@ -149,10 +176,9 @@ export async function DELETE(req: Request) {
     data: {
       deletedAt: new Date(),
       isActive: false,
-      updatedBy: session.user.username,
+      updatedBy: actor,
     },
-  })
+  });
 
-  return NextResponse.json({ ok: true })
+  return NextResponse.json({ ok: true });
 }
-

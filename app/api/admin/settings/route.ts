@@ -1,26 +1,29 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 async function requireAdminSession() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.username) return null
-  return session
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.username) return null;
+  return session;
 }
 
 function parseString(value: unknown) {
-  if (typeof value !== "string") return null
-  const trimmed = value.trim()
-  return trimmed.length ? trimmed : null
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  return trimmed.length ? trimmed : null;
 }
 
 export async function GET() {
-  const session = await requireAdminSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireAdminSession();
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const settings = await prisma.siteSetting.findFirst({ orderBy: { id: "asc" } })
+  const settings = await prisma.siteSetting.findFirst({
+    orderBy: { id: "asc" },
+  });
 
   if (!settings) {
     return NextResponse.json({
@@ -32,7 +35,7 @@ export async function GET() {
       dashboard_pending_status_id: null,
       dashboard_in_progress_status_id: null,
       dashboard_ready_status_id: null,
-    })
+    });
   }
 
   return NextResponse.json({
@@ -42,38 +45,50 @@ export async function GET() {
     store_phone: settings.storePhone,
     store_email: settings.storeEmail,
     dashboard_pending_status_id: settings.dashboardPendingStatusId ?? null,
-    dashboard_in_progress_status_id: settings.dashboardInProgressStatusId ?? null,
+    dashboard_in_progress_status_id:
+      settings.dashboardInProgressStatusId ?? null,
     dashboard_ready_status_id: settings.dashboardReadyStatusId ?? null,
     contact_receiver_emails: settings.contactReceiverEmails ?? "",
     contact_sender_email: settings.contactSenderEmail ?? "",
     max_contact_submissions_per_day: settings.maxContactSubmissionsPerDay ?? 5,
-  })
+  });
 }
 
 export async function PUT(req: Request) {
-  const session = await requireAdminSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireAdminSession();
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const actor = session.user!.username;
 
-  const body = await req.json().catch(() => null)
-  if (!body) return NextResponse.json({ error: "Invalid payload" }, { status: 400 })
+  const body = await req.json().catch(() => null);
+  if (!body)
+    return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
 
-  const cutoffTime = parseString(body.cutoff_time)
-  const storePhone = parseString(body.store_phone)
-  const storeEmail = parseString(body.store_email)
-  const deliveryFee = Number(body.delivery_fee ?? 0)
-  const minOrderDelivery = Number(body.min_order_delivery ?? 0)
-  const dashboardPendingStatusId = body.dashboard_pending_status_id ?? null
-  const dashboardInProgressStatusId = body.dashboard_in_progress_status_id ?? null
-  const dashboardReadyStatusId = body.dashboard_ready_status_id ?? null
-  const contactReceiverEmails = parseString(body.contact_receiver_emails)
-  const contactSenderEmail = parseString(body.contact_sender_email)
-  const maxContactSubmissionsPerDay = Number(body.max_contact_submissions_per_day ?? 5)
+  const cutoffTime = parseString(body.cutoff_time);
+  const storePhone = parseString(body.store_phone);
+  const storeEmail = parseString(body.store_email);
+  const deliveryFee = Number(body.delivery_fee ?? 0);
+  const minOrderDelivery = Number(body.min_order_delivery ?? 0);
+  const dashboardPendingStatusId = body.dashboard_pending_status_id ?? null;
+  const dashboardInProgressStatusId =
+    body.dashboard_in_progress_status_id ?? null;
+  const dashboardReadyStatusId = body.dashboard_ready_status_id ?? null;
+  const contactReceiverEmails = parseString(body.contact_receiver_emails);
+  const contactSenderEmail = parseString(body.contact_sender_email);
+  const maxContactSubmissionsPerDay = Number(
+    body.max_contact_submissions_per_day ?? 5,
+  );
 
   if (!storePhone || !storeEmail) {
-    return NextResponse.json({ error: "store_phone and store_email are required" }, { status: 400 })
+    return NextResponse.json(
+      { error: "store_phone and store_email are required" },
+      { status: 400 },
+    );
   }
 
-  const existing = await prisma.siteSetting.findFirst({ orderBy: { id: "asc" } })
+  const existing = await prisma.siteSetting.findFirst({
+    orderBy: { id: "asc" },
+  });
   const settings = existing
     ? await prisma.siteSetting.update({
         where: { id: existing.id },
@@ -89,7 +104,7 @@ export async function PUT(req: Request) {
           contactReceiverEmails,
           contactSenderEmail,
           maxContactSubmissionsPerDay,
-          updatedBy: session.user.username,
+          updatedBy: actor,
         },
       })
     : await prisma.siteSetting.create({
@@ -105,9 +120,9 @@ export async function PUT(req: Request) {
           contactReceiverEmails,
           contactSenderEmail,
           maxContactSubmissionsPerDay,
-          createdBy: session.user.username,
+          createdBy: actor,
         },
-      })
+      });
 
   return NextResponse.json({
     cutoff_time: settings.cutoffTime ?? "",
@@ -119,5 +134,5 @@ export async function PUT(req: Request) {
     contact_receiver_emails: settings.contactReceiverEmails,
     contact_sender_email: settings.contactSenderEmail,
     max_contact_submissions_per_day: settings.maxContactSubmissionsPerDay,
-  })
+  });
 }

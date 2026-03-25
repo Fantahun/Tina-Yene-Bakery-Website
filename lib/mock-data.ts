@@ -337,6 +337,8 @@ export interface Order {
   created_at: string;
   items: Array<{
     product_name: string;
+    size_name?: string;
+    serves?: string;
     quantity: number;
     unit_price: number;
     line_total: number;
