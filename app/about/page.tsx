@@ -73,8 +73,7 @@ export default function AboutPage() {
                 Our Story
               </h1>
               <p className="mx-auto mt-4 max-w-xl text-pretty text-base leading-relaxed text-background/90 sm:text-lg">
-                From a family kitchen to your neighborhood bakery, every crumb
-                carries a legacy of passion.
+                Yene Bakery brings together European pastry techniques and  Ethiopian-inspired warmth to create something truly unique in Seattle.
               </p>
             </div>
           </div>
