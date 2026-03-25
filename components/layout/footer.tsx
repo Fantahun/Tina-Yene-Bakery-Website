@@ -211,11 +211,11 @@ export function Footer() {
             <p className="text-sm text-muted-foreground">
               Designed &amp; Developed by:&nbsp;
               <Link
-                href="https://fantahun.net/"
+                href="https://eyadon.com/"
                 target="_blank"
                 className="text-sm text-muted-foreground transition-colors hover:text-primary underline"
               >
-                Fantahun Bishaw
+                Tina Dawit
               </Link>
             </p>
           </div>
