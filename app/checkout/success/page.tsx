@@ -27,9 +27,12 @@ import { Separator } from "@/components/ui/separator";
 import { getOrderFromSession } from "@/app/actions/stripe"; // Changed import
 import { useAppDispatch } from "@/store/hooks";
 import { clearCart } from "@/store/cart-slice";
+import { getOrderItemLineParts } from "@/lib/order-item-line";
 
 interface OrderItem {
   name: string;
+  sizeName?: string;
+  serves?: string;
   quantity: number;
   price: number;
   lineTotal: number;
@@ -76,65 +79,72 @@ function SuccessContent() {
       const sessionId = searchParams.get("session_id");
 
       if (!sessionId) {
-          // If no session ID, we can't verify the order from DB.
-          // Fallback to session storage is insecure/unreliable for "Order Confirmed" page 
-          // that claims payment success.
-          // Better to redirect to home or cart.
-          router.push("/");
-          return;
+        // If no session ID, we can't verify the order from DB.
+        // Fallback to session storage is insecure/unreliable for "Order Confirmed" page
+        // that claims payment success.
+        // Better to redirect to home or cart.
+        router.push("/");
+        return;
       }
 
       try {
         const dbOrder = await getOrderFromSession(sessionId);
-        
+
         if (dbOrder.paymentStatus !== "paid") {
-            console.warn("Order found but payment status is:", dbOrder.paymentStatus);
-            setPaymentFailed(true);
-            setLoading(false);
-            return;
+          console.warn(
+            "Order found but payment status is:",
+            dbOrder.paymentStatus,
+          );
+          setPaymentFailed(true);
+          setLoading(false);
+          return;
         }
 
         // Map DB order to OrderData interface for display
         const orderData: OrderData = {
-            confirmationNumber: dbOrder.confirmationNumber,
-            customerName: dbOrder.customerName,
-            customerEmail: dbOrder.customerEmail,
-            customerPhone: dbOrder.customerPhone,
-            fulfillmentMethod: dbOrder.fulfillmentMethod === 'pickup' ? 'pickup' : 'delivery',
-            fulfillmentDate: new Date(dbOrder.fulfillmentDate).toISOString(),
-            pickupLocation: dbOrder.pickupLocation ? {
+          confirmationNumber: dbOrder.confirmationNumber,
+          customerName: dbOrder.customerName,
+          customerEmail: dbOrder.customerEmail,
+          customerPhone: dbOrder.customerPhone,
+          fulfillmentMethod:
+            dbOrder.fulfillmentMethod === "pickup" ? "pickup" : "delivery",
+          fulfillmentDate: new Date(dbOrder.fulfillmentDate).toISOString(),
+          pickupLocation: dbOrder.pickupLocation
+            ? {
                 name: dbOrder.pickupLocation.name,
-                address: dbOrder.pickupLocation.address
-            } : null,
-            deliveryAddress: dbOrder.deliveryAddress || undefined,
-            // We store full address in DB, splitting might be needed if UI demands it, 
-            // but currently UI just displays address.
-            // Let's just put full address in deliveryAddress
-            deliveryCity: "", // Not stored separately in DB string
-            deliveryState: "",
-            deliveryZip: "",
-            orderNotes: dbOrder.orderNotes || undefined,
-            items: dbOrder.items.map((i: any) => ({
-                name: i.productName,
-                quantity: i.quantity,
-                price: Number(i.unitPrice),
-                lineTotal: Number(i.lineTotal)
-            })),
-            subtotal: Number(dbOrder.subtotal),
-            deliveryFee: Number(dbOrder.deliveryFee),
-            total: Number(dbOrder.total)
+                address: dbOrder.pickupLocation.address,
+              }
+            : null,
+          deliveryAddress: dbOrder.deliveryAddress || undefined,
+          // We store full address in DB, splitting might be needed if UI demands it,
+          // but currently UI just displays address.
+          // Let's just put full address in deliveryAddress
+          deliveryCity: "", // Not stored separately in DB string
+          deliveryState: "",
+          deliveryZip: "",
+          orderNotes: dbOrder.orderNotes || undefined,
+          items: dbOrder.items.map((i: any) => ({
+            name: i.productName,
+            sizeName: i.sizeName || undefined,
+            serves: i.serves || undefined,
+            quantity: i.quantity,
+            price: Number(i.unitPrice),
+            lineTotal: Number(i.lineTotal),
+          })),
+          subtotal: Number(dbOrder.subtotal),
+          deliveryFee: Number(dbOrder.deliveryFee),
+          total: Number(dbOrder.total),
         };
 
         setOrder(orderData);
-        
+
         // Clear client side data
         sessionStorage.removeItem("YeneBakery_checkout_data");
         dispatch(clearCart());
-        
       } catch (error) {
         console.error("[YeneBakery] Error verifying payment:", error);
         // If we can't verify, don't show success
-        router.push("/checkout"); 
+        router.push("/checkout");
       } finally {
         setLoading(false);
       }
@@ -157,25 +167,28 @@ function SuccessContent() {
   }
 
   if (paymentFailed) {
-      return (
-        <div className="mx-auto flex min-h-[60vh] max-w-7xl flex-col items-center justify-center px-4 py-16 text-center">
-          <div className="rounded-full bg-red-100 p-3">
-            <XCircle className="h-10 w-10 text-red-600" />
-          </div>
-          <h1 className="mt-4 text-2xl font-bold text-foreground">Payment Failed</h1>
-          <p className="mt-2 text-muted-foreground">
-            We were unable to process your payment. Your order has not been finalized.
-          </p>
-          <div className="mt-6 flex gap-4">
-            <Button asChild variant="outline">
-              <Link href="/cart">Return to Cart</Link>
-            </Button>
-            <Button asChild>
-              <Link href="/checkout/payment">Try Again</Link>
-            </Button>
-          </div>
+    return (
+      <div className="mx-auto flex min-h-[60vh] max-w-7xl flex-col items-center justify-center px-4 py-16 text-center">
+        <div className="rounded-full bg-red-100 p-3">
+          <XCircle className="h-10 w-10 text-red-600" />
         </div>
-      );
+        <h1 className="mt-4 text-2xl font-bold text-foreground">
+          Payment Failed
+        </h1>
+        <p className="mt-2 text-muted-foreground">
+          We were unable to process your payment. Your order has not been
+          finalized.
+        </p>
+        <div className="mt-6 flex gap-4">
+          <Button asChild variant="outline">
+            <Link href="/cart">Return to Cart</Link>
+          </Button>
+          <Button asChild>
+            <Link href="/checkout/payment">Try Again</Link>
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   if (!order) {
@@ -311,19 +324,47 @@ function SuccessContent() {
             Order Items
           </h3>
           <div className="mt-3 space-y-2">
-            {order.items.map((item, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between text-sm"
-              >
-                <span className="text-muted-foreground">
-                  {item.quantity}x {item.name}
-                </span>
-                <span className="font-medium">
-                  ${item.lineTotal.toFixed(2)}
-                </span>
-              </div>
-            ))}
+            {order.items.map((item, idx) => {
+              const parts = getOrderItemLineParts({
+                quantity: item.quantity,
+                productName: item.name,
+                sizeName: item.sizeName,
+                serves: item.serves,
+              });
+
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <div className="flex items-start gap-2">
+                    <span className="font-mono text-muted-foreground">
+                      {parts.quantityText}
+                    </span>
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {parts.productText}
+                      </p>
+                      {(parts.sizeText || parts.servesText) && (
+                        <div className="mt-0.5 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          {parts.sizeText ? (
+                            <span className="rounded bg-muted px-1.5 py-0.5">
+                              Size: {parts.sizeText}
+                            </span>
+                          ) : null}
+                          {parts.servesText ? (
+                            <span className="rounded bg-muted px-1.5 py-0.5">
+                              Serves: {parts.servesText}
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <span className="font-medium">${item.lineTotal.toFixed(2)}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 

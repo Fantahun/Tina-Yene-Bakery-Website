@@ -1,42 +1,44 @@
-import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { NextResponse } from "next/server";
+import { getServerSession } from "next-auth";
 
-import { authOptions } from "@/lib/auth"
-import { prisma } from "@/lib/prisma"
+import { authOptions } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 async function requireAdminSession() {
-  const session = await getServerSession(authOptions)
-  if (!session?.user?.username) return null
-  return session
+  const session = await getServerSession(authOptions);
+  if (!session?.user?.username) return null;
+  return session;
 }
 
 function mapOrder(order: {
-  id: string
-  confirmationNumber: string
-  customerName: string
-  customerEmail: string
-  customerPhone: string
-  businessName: string | null
-  fulfillmentMethod: "pickup" | "delivery"
-  fulfillmentDate: Date
-  pickupLocation: { name: string } | null
-  deliveryAddress: string | null
-  subtotal: any
-  deliveryFee: any
-  total: any
-  orderNotes: string | null
-  paymentStatus: string
-  stripeSessionId: string | null
-  stripePaymentIntentId: string | null
-  createdAt: Date
-  orderStatusId: number
-  orderStatus: { name: string }
+  id: string;
+  confirmationNumber: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhone: string;
+  businessName: string | null;
+  fulfillmentMethod: "pickup" | "delivery";
+  fulfillmentDate: Date;
+  pickupLocation: { name: string } | null;
+  deliveryAddress: string | null;
+  subtotal: any;
+  deliveryFee: any;
+  total: any;
+  orderNotes: string | null;
+  paymentStatus: string;
+  stripeSessionId: string | null;
+  stripePaymentIntentId: string | null;
+  createdAt: Date;
+  orderStatusId: number;
+  orderStatus: { name: string };
   items: Array<{
-    productName: string
-    quantity: number
-    unitPrice: any
-    lineTotal: any
-  }>
+    productName: string;
+    sizeName: string | null;
+    serves: string | null;
+    quantity: number;
+    unitPrice: any;
+    lineTotal: any;
+  }>;
 }) {
   return {
     id: order.id,
@@ -61,49 +63,52 @@ function mapOrder(order: {
     created_at: order.createdAt.toISOString(),
     items: order.items.map((item) => ({
       product_name: item.productName,
+      size_name: item.sizeName ?? undefined,
+      serves: item.serves ?? undefined,
       quantity: item.quantity,
       unit_price: Number(item.unitPrice),
       line_total: Number(item.lineTotal),
     })),
-  }
+  };
 }
 
 export async function GET(req: Request) {
-  const session = await requireAdminSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireAdminSession();
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { searchParams } = new URL(req.url)
-  const search = searchParams.get("search")?.trim()
-  const statusId = searchParams.get("statusId")
-  const startDate = searchParams.get("startDate")
-  const endDate = searchParams.get("endDate")
+  const { searchParams } = new URL(req.url);
+  const search = searchParams.get("search")?.trim();
+  const statusId = searchParams.get("statusId");
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
 
   const where: {
-    orderStatusId?: number
-    createdAt?: { gte?: Date; lte?: Date }
+    orderStatusId?: number;
+    createdAt?: { gte?: Date; lte?: Date };
     OR?: Array<{
-      confirmationNumber?: { contains: string; mode: "insensitive" }
-      customerName?: { contains: string; mode: "insensitive" }
-      customerEmail?: { contains: string; mode: "insensitive" }
-    }>
-  } = {}
+      confirmationNumber?: { contains: string; mode: "insensitive" };
+      customerName?: { contains: string; mode: "insensitive" };
+      customerEmail?: { contains: string; mode: "insensitive" };
+    }>;
+  } = {};
 
   if (statusId && statusId !== "all") {
-    const id = Number(statusId)
+    const id = Number(statusId);
     if (Number.isInteger(id)) {
-      where.orderStatusId = id
+      where.orderStatusId = id;
     }
   }
 
   if (startDate || endDate) {
-    const range: { gte?: Date; lte?: Date } = {}
-    if (startDate) range.gte = new Date(startDate)
+    const range: { gte?: Date; lte?: Date } = {};
+    if (startDate) range.gte = new Date(startDate);
     if (endDate) {
-      const end = new Date(endDate)
-      end.setHours(23, 59, 59, 999)
-      range.lte = end
+      const end = new Date(endDate);
+      end.setHours(23, 59, 59, 999);
+      range.lte = end;
     }
-    where.createdAt = range
+    where.createdAt = range;
   }
 
   if (search) {
@@ -111,7 +116,7 @@ export async function GET(req: Request) {
       { confirmationNumber: { contains: search, mode: "insensitive" } },
       { customerName: { contains: search, mode: "insensitive" } },
       { customerEmail: { contains: search, mode: "insensitive" } },
-    ]
+    ];
   }
 
   const orders = await prisma.order.findMany({
@@ -123,24 +128,34 @@ export async function GET(req: Request) {
       items: {
         select: {
           productName: true,
+          sizeName: true,
+          serves: true,
           quantity: true,
           unitPrice: true,
           lineTotal: true,
         },
       },
     },
-  })
+  });
 
-  return NextResponse.json(orders.map(mapOrder))
+  return NextResponse.json(orders.map(mapOrder));
 }
 
 export async function PATCH(req: Request) {
-  const session = await requireAdminSession()
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const session = await requireAdminSession();
+  if (!session)
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const body = await req.json().catch(() => null)
-  if (!body || typeof body.id !== "string" || !Number.isInteger(body.order_status_id)) {
-    return NextResponse.json({ error: "id and order_status_id are required" }, { status: 400 })
+  const body = await req.json().catch(() => null);
+  if (
+    !body ||
+    typeof body.id !== "string" ||
+    !Number.isInteger(body.order_status_id)
+  ) {
+    return NextResponse.json(
+      { error: "id and order_status_id are required" },
+      { status: 400 },
+    );
   }
 
   const updated = await prisma.order.update({
@@ -155,13 +170,15 @@ export async function PATCH(req: Request) {
       items: {
         select: {
           productName: true,
+          sizeName: true,
+          serves: true,
           quantity: true,
           unitPrice: true,
           lineTotal: true,
         },
       },
     },
-  })
+  });
 
-  return NextResponse.json(mapOrder(updated))
+  return NextResponse.json(mapOrder(updated));
 }

@@ -1,6 +1,4 @@
-
-
-import { getOrderStatus } from "@/app/actions/order-status"
+import { getOrderStatus } from "@/app/actions/order-status";
 import {
   CalendarDays,
   Truck,
@@ -8,12 +6,13 @@ import {
   Package,
   Activity,
   DollarSign,
-  Info 
-} from "lucide-react"
-import { Button } from "@/components/ui/button"
-import { Separator } from "@/components/ui/separator"
-import { Badge } from "@/components/ui/badge"
-import Link from "next/link"
+  Info,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { getOrderItemLineParts } from "@/lib/order-item-line";
 
 const statusColors: Record<string, string> = {
   pending: "bg-orange-100 text-orange-800",
@@ -21,68 +20,78 @@ const statusColors: Record<string, string> = {
   ready_for_pickup: "bg-green-100 text-green-800",
   completed: "bg-gray-100 text-gray-800",
   cancelled: "bg-red-100 text-red-800",
-}
+};
 
 const paymentStatusColors: Record<string, string> = {
   pending: "bg-yellow-100 text-yellow-800",
   paid: "bg-green-100 text-green-800",
   failed: "bg-red-100 text-red-800",
   refunded: "bg-purple-100 text-purple-800",
-}
+};
 
 function normalizeStatus(value: string) {
-  return value.toLowerCase().replace(/\s+/g, "_")
+  return value.toLowerCase().replace(/\s+/g, "_");
 }
 
 function getStatusClass(name: string) {
-  return statusColors[normalizeStatus(name)] ?? "bg-muted text-foreground"
+  return statusColors[normalizeStatus(name)] ?? "bg-muted text-foreground";
 }
 
 function getPaymentStatusClass(status: string) {
-  return paymentStatusColors[status.toLowerCase()] ?? "bg-gray-100 text-gray-800"
+  return (
+    paymentStatusColors[status.toLowerCase()] ?? "bg-gray-100 text-gray-800"
+  );
 }
 
 export default async function OrderStatusResultPage({
   params,
 }: {
-  params: Promise<{ confirmationNumber: string }>
+  params: Promise<{ confirmationNumber: string }>;
 }) {
-  const { confirmationNumber } = await params
-  
-  // Use try/catch because if prisma schema changed but client not updated, 
+  const { confirmationNumber } = await params;
+
+  // Use try/catch because if prisma schema changed but client not updated,
   // or if DB connection fails, we want to handle it gracefully.
   let order;
   try {
-     order = await getOrderStatus(confirmationNumber)
+    order = await getOrderStatus(confirmationNumber);
   } catch (e: any) {
-     if (e.name === "RateLimitError") {
-         return (
-             <div className="mx-auto flex min-h-[60vh] max-w-7xl flex-col items-center justify-center px-4 py-16 text-center">
-                <div className="rounded-full bg-red-100 p-4 mb-4">
-                     <Info className="h-10 w-10 text-red-600" />
-                </div>
-                <h1 className="text-2xl font-bold text-foreground">Traffic Limit Exceeded</h1>
-                <p className="mt-2 text-muted-foreground">{e.message}</p>
-                <Button asChild className="mt-6">
-                    <Link href="/">Back to Home</Link>
-                </Button>
-             </div>
-         )
-     }
-     console.error("Failed to fetch order", e);
-     // In a real app we might show a specific error page
-     throw e;
+    if (e.name === "RateLimitError") {
+      return (
+        <div className="mx-auto flex min-h-[60vh] max-w-7xl flex-col items-center justify-center px-4 py-16 text-center">
+          <div className="rounded-full bg-red-100 p-4 mb-4">
+            <Info className="h-10 w-10 text-red-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-foreground">
+            Traffic Limit Exceeded
+          </h1>
+          <p className="mt-2 text-muted-foreground">{e.message}</p>
+          <Button asChild className="mt-6">
+            <Link href="/">Back to Home</Link>
+          </Button>
+        </div>
+      );
+    }
+    console.error("Failed to fetch order", e);
+    // In a real app we might show a specific error page
+    throw e;
   }
 
   if (!order) {
     return (
       <div className="mx-auto flex min-h-[60vh] max-w-7xl flex-col items-center justify-center px-4 py-16 text-center">
         <div className="rounded-full bg-muted p-4">
-             <Info className="h-10 w-10 text-muted-foreground" />
+          <Info className="h-10 w-10 text-muted-foreground" />
         </div>
-        <h1 className="mt-4 text-2xl font-bold text-foreground">Order Not Found</h1>
+        <h1 className="mt-4 text-2xl font-bold text-foreground">
+          Order Not Found
+        </h1>
         <p className="mt-2 text-muted-foreground">
-          We couldn't find an order with number <span className="font-mono font-bold text-foreground">{confirmationNumber}</span>.
+          We couldn't find an order with number{" "}
+          <span className="font-mono font-bold text-foreground">
+            {confirmationNumber}
+          </span>
+          .
         </p>
         <p className="mt-1 text-sm text-muted-foreground">
           Please check the number and try again.
@@ -91,10 +100,10 @@ export default async function OrderStatusResultPage({
           <Link href="/order-status">Try Another Number</Link>
         </Button>
       </div>
-    )
+    );
   }
 
-  const fulfillmentDate = new Date(order.fulfillmentDate)
+  const fulfillmentDate = new Date(order.fulfillmentDate);
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12 sm:px-6 lg:px-8">
@@ -107,14 +116,20 @@ export default async function OrderStatusResultPage({
           #{order.confirmationNumber}
         </div>
         <div className="mt-4 flex flex-wrap justify-center gap-3">
-             <Badge className={`flex items-center gap-1.5 px-3 py-1 ${getStatusClass(order.orderStatus.name)}`} variant="secondary">
-                <Activity className="h-3.5 w-3.5" />
-                {order.orderStatus.name}
-             </Badge>
-             <Badge className={`flex items-center gap-1.5 px-3 py-1 ${getPaymentStatusClass(order.paymentStatus)}`} variant="secondary">
-                <DollarSign className="h-3.5 w-3.5" />
-                <span className="capitalize">{order.paymentStatus}</span>
-             </Badge>
+          <Badge
+            className={`flex items-center gap-1.5 px-3 py-1 ${getStatusClass(order.orderStatus.name)}`}
+            variant="secondary"
+          >
+            <Activity className="h-3.5 w-3.5" />
+            {order.orderStatus.name}
+          </Badge>
+          <Badge
+            className={`flex items-center gap-1.5 px-3 py-1 ${getPaymentStatusClass(order.paymentStatus)}`}
+            variant="secondary"
+          >
+            <DollarSign className="h-3.5 w-3.5" />
+            <span className="capitalize">{order.paymentStatus}</span>
+          </Badge>
         </div>
       </div>
 
@@ -122,9 +137,11 @@ export default async function OrderStatusResultPage({
       <div className="mt-10 rounded-lg border border-border bg-card p-6 shadow-sm">
         {/* Customer Info */}
         <div className="mb-6 flex flex-col gap-1">
-            <h3 className="text-sm font-medium text-muted-foreground">Customer</h3>
-            <p className="text-base font-medium">{order.customerName}</p>
-            <p className="text-sm text-muted-foreground">{order.customerEmail}</p>
+          <h3 className="text-sm font-medium text-muted-foreground">
+            Customer
+          </h3>
+          <p className="text-base font-medium">{order.customerName}</p>
+          <p className="text-sm text-muted-foreground">{order.customerEmail}</p>
         </div>
 
         <Separator className="my-4" />
@@ -199,20 +216,49 @@ export default async function OrderStatusResultPage({
             Order Items
           </h3>
           <div className="mt-3 space-y-2">
-            {order.items.map((item: any, idx: number) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between text-sm"
-              >
-                <div className="flex gap-2">
-                    <span className="font-mono text-muted-foreground">{item.quantity}x</span>
-                    <span className="text-foreground">{item.productName}</span>
+            {order.items.map((item: any, idx: number) => {
+              const parts = getOrderItemLineParts({
+                quantity: item.quantity,
+                productName: item.productName,
+                sizeName: item.sizeName,
+                serves: item.serves,
+              });
+
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <div className="flex items-start gap-2">
+                    <span className="font-mono text-muted-foreground">
+                      {parts.quantityText}
+                    </span>
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {parts.productText}
+                      </p>
+                      {(parts.sizeText || parts.servesText) && (
+                        <div className="mt-0.5 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          {parts.sizeText ? (
+                            <span className="rounded bg-muted px-1.5 py-0.5">
+                              Size: {parts.sizeText}
+                            </span>
+                          ) : null}
+                          {parts.servesText ? (
+                            <span className="rounded bg-muted px-1.5 py-0.5">
+                              Serves: {parts.servesText}
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <span className="font-medium">
+                    ${Number(item.lineTotal).toFixed(2)}
+                  </span>
                 </div>
-                <span className="font-medium">
-                  ${Number(item.lineTotal).toFixed(2)}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -236,12 +282,12 @@ export default async function OrderStatusResultPage({
           </div>
         </div>
       </div>
-      
+
       <div className="text-center mt-6">
-         <Button variant="link" asChild>
-             <Link href="/order-status">Check Another Order</Link>
-         </Button>
+        <Button variant="link" asChild>
+          <Link href="/order-status">Check Another Order</Link>
+        </Button>
       </div>
     </div>
-  )
+  );
 }

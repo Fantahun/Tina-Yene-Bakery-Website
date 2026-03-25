@@ -49,6 +49,7 @@ model Product {
   slug             String      @unique
   description      String?
   price            Decimal     @db.Decimal(10, 2)
+  hasSizes         Boolean     @default(false)
   imageUrl         String?
   prepLeadTimeDays Int         @default(0)
   pickupAllowed    Boolean     @default(true)
@@ -61,9 +62,26 @@ model Product {
   updatedBy        String?
   updatedAt        DateTime    @updatedAt
   category         Category    @relation(fields: [categoryId], references: [id])
+  sizes            ProductSize[]
   orderItems       OrderItem[]
 
   @@index([categoryId])
+}
+
+model ProductSize {
+  id        Int      @id @default(autoincrement())
+  productId Int
+  name      String
+  serves    String?
+  price     Decimal  @db.Decimal(10, 2)
+  isActive  Boolean  @default(true)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  product   Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  orderItems OrderItem[]
+
+  @@index([productId])
 }
 
 model PickupLocation {
@@ -154,7 +172,10 @@ model OrderItem {
   id          String   @id @default(uuid())
   orderId     String
   productId   Int?
+  productSizeId Int?
   productName String
+  sizeName    String?
+  serves      String?
   quantity    Int
   unitPrice   Decimal  @db.Decimal(10, 2)
   lineTotal   Decimal  @db.Decimal(10, 2)
@@ -164,9 +185,11 @@ model OrderItem {
   updatedAt   DateTime @updatedAt
   order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product     Product? @relation(fields: [productId], references: [id])
+  productSize ProductSize? @relation(fields: [productSizeId], references: [id])
 
   @@index([orderId])
   @@index([productId])
+  @@index([productSizeId])
 }
 
 model AdminUser {

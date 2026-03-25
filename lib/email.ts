@@ -1,5 +1,5 @@
-import nodemailer from 'nodemailer';
-import { Order, OrderItem, PickupLocation } from '@prisma/client';
+import nodemailer from "nodemailer";
+import { Order, OrderItem, PickupLocation } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export async function sendEmail({
@@ -18,7 +18,7 @@ export async function sendEmail({
   const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: Number(process.env.EMAIL_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+    secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -43,15 +43,15 @@ export async function sendEmail({
 }
 
 export async function sendOrderConfirmationEmail(
-  order: Order & { items: OrderItem[]; pickupLocation: PickupLocation | null }
+  order: Order & { items: OrderItem[]; pickupLocation: PickupLocation | null },
 ) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://yenebakery.com";
-  
+
   // Format currency
   const formatCurrency = (amount: number | string | any) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(Number(amount));
   };
 
@@ -61,25 +61,172 @@ export async function sendOrderConfirmationEmail(
   });
   const storePhone = settings?.storePhone || "510-500-1234";
 
-  const fulfillmentMethodDisplay = 
-    order.fulfillmentMethod === 'pickup' ? 'Store Pickup' : 'Delivery';
+  const fulfillmentMethodDisplay =
+    order.fulfillmentMethod === "pickup" ? "Store Pickup" : "Delivery";
 
-  const itemsHtml = order.items.map(item => `
+  // Some historical/legacy orders may miss sizeName on OrderItem.
+  // Prefer persisted productSizeId (deterministic), then fallback to productId + unitPrice.
+  const itemProductSizeIds = order.items
+    .map((item) => (item as any).productSizeId)
+    .filter((id): id is number => typeof id === "number");
+
+  const explicitSizes =
+    itemProductSizeIds.length > 0
+      ? await prisma.productSize.findMany({
+          where: { id: { in: itemProductSizeIds } },
+          select: {
+            id: true,
+            name: true,
+            serves: true,
+            price: true,
+          },
+        })
+      : [];
+
+  const explicitSizeById = new Map(
+    explicitSizes.map((size) => [
+      size.id,
+      { name: size.name, serves: size.serves, price: Number(size.price) },
+    ]),
+  );
+
+  const itemProductIds = order.items
+    .map((item) => item.productId)
+    .filter((id): id is number => typeof id === "number");
+
+  const productsWithSizes =
+    itemProductIds.length > 0
+      ? await prisma.product.findMany({
+          where: { id: { in: itemProductIds } },
+          select: {
+            id: true,
+            sizes: {
+              select: {
+                name: true,
+                serves: true,
+                price: true,
+              },
+            },
+          },
+        })
+      : [];
+
+  const productSizesByProductId = new Map(
+    productsWithSizes.map((product) => [
+      product.id,
+      product.sizes.map((size) => ({
+        name: size.name,
+        serves: size.serves,
+        price: Number(size.price),
+      })),
+    ]),
+  );
+
+  const itemsHtml = order.items
+    .map(
+      (item) => {
+        const explicitSize =
+          typeof (item as any).productSizeId === "number"
+            ? explicitSizeById.get((item as any).productSizeId) ?? null
+            : null;
+
+        const sizesForProduct =
+          typeof item.productId === "number"
+            ? productSizesByProductId.get(item.productId) ?? []
+            : [];
+
+        const matchedSize = sizesForProduct.find(
+          (size) => Math.abs(size.price - Number(item.unitPrice)) < 0.01,
+        );
+
+        const resolvedSizeName =
+          (item as any).sizeName ??
+          (item as any).size_name ??
+          (item as any).size ??
+          explicitSize?.name ??
+          matchedSize?.name ??
+          null;
+        const resolvedServes =
+          (item as any).serves ??
+          (item as any).servesText ??
+          explicitSize?.serves ??
+          matchedSize?.serves ??
+          null;
+
+        const sizeText =
+          typeof resolvedSizeName === "string" && resolvedSizeName.trim().length > 0
+            ? resolvedSizeName.trim()
+            : "";
+        const servesText =
+          typeof resolvedServes === "string" && resolvedServes.trim().length > 0
+            ? resolvedServes.trim()
+            : "";
+
+        return `
     <tr>
-      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
-        <p style="margin: 0; font-weight: 500; color: #111827;">${item.productName}</p>
+      <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; font-size: 13px;">
+         <p style="margin: 0; font-weight: 600; color: #111827;">
+          ${item.productName}${sizeText ? ` <span style="font-weight: 500; color: #374151;">(${sizeText})</span>` : ""}
+         </p>
+        ${servesText ? `<p style="margin: 3px 0 0; font-size: 11px; color: #6b7280;">Serves: ${servesText}</p>` : ""}
       </td>
-      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">
+      <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: center; font-size: 13px;">
         ${item.quantity}
       </td>
-      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right;">
+      <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 13px;">
         ${formatCurrency(item.unitPrice)}
       </td>
-      <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: right; font-weight: 500;">
+      <td style="padding: 10px; border-bottom: 1px solid #e5e7eb; text-align: right; font-size: 13px; font-weight: 500;">
         ${formatCurrency(item.lineTotal)}
       </td>
     </tr>
-  `).join('');
+  `;
+      },
+    )
+    .join("");
+
+  const itemsText = order.items
+    .map((item) => {
+      const explicitSize =
+        typeof (item as any).productSizeId === "number"
+          ? explicitSizeById.get((item as any).productSizeId) ?? null
+          : null;
+
+      const sizesForProduct =
+        typeof item.productId === "number"
+          ? productSizesByProductId.get(item.productId) ?? []
+          : [];
+
+      const matchedSize = sizesForProduct.find(
+        (size) => Math.abs(size.price - Number(item.unitPrice)) < 0.01,
+      );
+
+      const resolvedSizeName =
+        (item as any).sizeName ??
+        (item as any).size_name ??
+        (item as any).size ??
+        explicitSize?.name ??
+        matchedSize?.name ??
+        null;
+      const resolvedServes =
+        (item as any).serves ??
+        (item as any).servesText ??
+        explicitSize?.serves ??
+        matchedSize?.serves ??
+        null;
+
+      const sizeText =
+        typeof resolvedSizeName === "string" && resolvedSizeName.trim().length > 0
+          ? ` (${resolvedSizeName.trim()})`
+          : "";
+      const servesText =
+        typeof resolvedServes === "string" && resolvedServes.trim().length > 0
+          ? ` - Serves ${resolvedServes.trim()}`
+          : "";
+
+      return `- ${item.quantity}x ${item.productName}${sizeText}${servesText}: ${formatCurrency(item.lineTotal)}`;
+    })
+    .join("\n");
 
   const html = `
     <!DOCTYPE html>
@@ -103,7 +250,9 @@ export async function sendOrderConfirmationEmail(
         .label { font-size: 13px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 4px; display: block; }
         .value { color: #111827; font-weight: 500; }
         table { width: 100%; border-collapse: collapse; margin-bottom: 32px; }
-        th { text-align: left; padding: 12px; border-bottom: 2px solid #e5e7eb; color: #6b7280; font-size: 13px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .order-table th { text-align: left; padding: 10px; border-bottom: 2px solid #e5e7eb; color: #6b7280; font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; }
+        .order-table th.center { text-align: center; }
+        .order-table th.right { text-align: right; }
         .totals { width: 100%; max-width: 250px; margin-left: auto; }
         .total-row { display: flex; justify-content: space-between; padding: 8px 0; }
         .total-row.final { border-top: 2px solid #e5e7eb; margin-top: 8px; padding-top: 16px; font-weight: 700; font-size: 18px; color: #111827; }
@@ -137,10 +286,10 @@ export async function sendOrderConfirmationEmail(
             </div>
 
             <div class="info-item">
-               <span class="label">${order.fulfillmentMethod === 'pickup' ? 'Pickup Location' : 'Delivery Address'}</span>
+               <span class="label">${order.fulfillmentMethod === "pickup" ? "Pickup Location" : "Delivery Address"}</span>
                <div class="value">
-                 ${order.fulfillmentMethod === 'pickup' && order.pickupLocation ? order.pickupLocation.name + ' - ' + order.pickupLocation.address : ''}
-                 ${order.fulfillmentMethod === 'delivery' ? order.deliveryAddress : ''}
+                 ${order.fulfillmentMethod === "pickup" && order.pickupLocation ? order.pickupLocation.name + " - " + order.pickupLocation.address : ""}
+                 ${order.fulfillmentMethod === "delivery" ? order.deliveryAddress : ""}
                </div>
             </div>
 
@@ -151,13 +300,13 @@ export async function sendOrderConfirmationEmail(
           </div>
 
           <h2>Order Summary</h2>
-          <table>
+          <table class="order-table">
             <thead>
               <tr>
                 <th>Item</th>
-                <th style="text-align: center;">Qty</th>
-                <th style="text-align: right;">Price</th>
-                <th style="text-align: right;">Total</th>
+                <th class="center">Qty</th>
+                <th class="right">Price</th>
+                <th class="right">Total</th>
               </tr>
             </thead>
             <tbody>
@@ -170,20 +319,24 @@ export async function sendOrderConfirmationEmail(
               <span>Subtotal</span>
               <span>${formatCurrency(order.subtotal)}</span>
             </div>
-            ${Number(order.deliveryFee) > 0 ? `
+            ${
+              Number(order.deliveryFee) > 0
+                ? `
             <div class="total-row">
               <span>Delivery Fee</span>
               <span>${formatCurrency(order.deliveryFee)}</span>
             </div>
-            ` : ''}
+            `
+                : ""
+            }
             <div class="total-row final">
-              <span>Total</span>
+              <span>Total </span>
               <span>${formatCurrency(order.total)}</span>
             </div>
           </div>
 
           <div style="text-align: center; margin-top: 40px;">
-             <p>If you have any questions, please contact us at <a href="tel:${storePhone.replace(/\D/g, '')}">${storePhone}</a> or reply to this email.</p>
+             <p>If you have any questions, please contact us at <a href="tel:${storePhone.replace(/\D/g, "")}">${storePhone}</a> or reply to this email.</p>
           </div>
         </div>
         
@@ -197,9 +350,16 @@ export async function sendOrderConfirmationEmail(
 
   return sendEmail({
     to: order.customerEmail,
-    from: `"Yene Bakery" <${process.env.EMAIL_USER || 'orders@yenebakery.com'}>`, // Needs to be verified sender
+    from: `"Yene Bakery" <${process.env.EMAIL_USER || "orders@yenebakery.com"}>`, // Needs to be verified sender
     subject: `Order Confirmation #${order.confirmationNumber} - Yene Bakery`,
-    text: `Thank you for your order! Your confirmation number is ${order.confirmationNumber}. Total: ${formatCurrency(order.total)}.`,
+    text:
+      `Thank you for your order!\n\n` +
+      `Order Number: ${order.confirmationNumber}\n` +
+      `Items:\n${itemsText}\n\n` +
+      `Subtotal: ${formatCurrency(order.subtotal)}\n` +
+      `${Number(order.deliveryFee) > 0 ? `Delivery Fee: ${formatCurrency(order.deliveryFee)}\n` : ""}` +
+      `Total: ${formatCurrency(order.total)}\n\n` +
+      `Track your order: ${baseUrl}/order-status/${order.confirmationNumber}`,
     html: html,
   });
 }

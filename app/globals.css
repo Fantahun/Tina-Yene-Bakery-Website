@@ -120,33 +120,36 @@
   }
 }
 
-@property --border-angle {
-  syntax: "<angle>";
-  inherits: false;
-  initial-value: 0deg;
-}
-
-@keyframes border-angle-rotate {
+@keyframes conic-border-spin {
+  from {
+    transform: rotate(0deg);
+  }
   to {
-    --border-angle: 360deg;
+    transform: rotate(360deg);
   }
 }
 
 .animate-aurora-spin {
-  animation: slow-rotate 10s linear infinite, aurora-hue-shift 5s linear infinite;
+  animation:
+    slow-rotate 10s linear infinite,
+    aurora-hue-shift 5s linear infinite;
   will-change: transform, filter;
   background-size: 220% 220%;
 }
 
 .animate-aurora-spin-slower {
-  animation: slow-rotate 7s linear infinite, aurora-hue-shift 3s linear infinite;
+  animation:
+    slow-rotate 7s linear infinite,
+    aurora-hue-shift 3s linear infinite;
   will-change: transform, filter;
   background-size: 220% 220%;
 }
 
 .animate-conic-border-flow {
-  animation: border-angle-rotate 12s linear infinite, aurora-hue-shift 8s linear infinite;
-  will-change: filter;
+  animation:
+    conic-border-spin 12s linear infinite,
+    aurora-hue-shift 8s linear infinite;
+  will-change: transform, filter;
 }
 
 @media (prefers-reduced-motion: reduce) {

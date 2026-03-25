@@ -22,7 +22,12 @@ export interface CheckoutSessionData {
   orderNotes?: string;
   items: Array<{
     id: number;
-    // We only need ID and quantity from client, 
+    cart_key?: string;
+    slug?: string;
+    size_id?: number;
+    size_name?: string;
+    serves?: string;
+    // We only need ID and quantity from client,
     // other fields like price are ignored for security
     quantity: number;
     name?: string; // Optional for client-side optimistic UI, but server fetches real name
@@ -49,12 +54,18 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
         isActive: true,
         deletedAt: null,
       },
+      include: {
+        sizes: {
+          where: { isActive: true },
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+        },
+      },
     });
 
     // 2. Calculate line items and totals
     let calculatedSubtotal = 0;
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
-    const orderItemsData: Prisma.OrderItemCreateManyOrderInput[] = [];
+    const orderItemsData: Array<Prisma.OrderItemCreateManyOrderInput & { productSizeId?: number | null }> = [];
 
     for (const item of data.items) {
       const dbProduct = dbProducts.find((p) => p.id === item.id);
@@ -64,43 +75,73 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
         continue;
       }
 
-      const unitPrice = Number(dbProduct.price);
+      const selectedSize =
+        dbProduct.hasSizes && item.size_id
+          ? dbProduct.sizes.find((size) => size.id === item.size_id)
+          : null;
+      const fallbackSize = dbProduct.hasSizes ? dbProduct.sizes[0] : null;
+      const resolvedSize = selectedSize ?? fallbackSize ?? null;
+
+      if (dbProduct.hasSizes && !resolvedSize) {
+        console.warn(
+          `Product ID ${item.id} requires a size, but none is available.`,
+        );
+        continue;
+      }
+
+      const unitPrice = resolvedSize
+        ? Number(resolvedSize.price)
+        : Number(dbProduct.price);
       const quantity = item.quantity;
       const lineTotal = unitPrice * quantity;
+      const displayName = resolvedSize
+        ? `${dbProduct.name} - ${resolvedSize.name}`
+        : dbProduct.name;
 
       calculatedSubtotal += lineTotal;
 
       // Handle product images explicitly for Stripe
       const productImages: string[] = [];
       if (dbProduct.imageUrl) {
-          if (dbProduct.imageUrl.startsWith("http")) {
-              productImages.push(dbProduct.imageUrl);
-          } else {
-              // It's a relative path. 
-              const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-              // Stripe requires absolute URLs. 
-              // Also, Stripe often rejects "localhost" as it cannot reach it to download the image.
-              // We only include the image if we have a valid public base URL.
-              if (baseUrl && !baseUrl.includes("localhost") && !baseUrl.includes("127.0.0.1")) {
-                  try {
-                       // Construct absolute URL safely
-                       // Remove leading slash from path if base has trailing, or vice versa
-                       const cleanBase = baseUrl.endsWith('/') ? baseUrl.slice(0, -1) : baseUrl;
-                       const cleanPath = dbProduct.imageUrl.startsWith('/') ? dbProduct.imageUrl : `/${dbProduct.imageUrl}`;
-                       productImages.push(`${cleanBase}${cleanPath}`);
-                  } catch (e) {
-                      // ignore invalid url construction
-                      console.warn("Invalid image URL construction", e);
-                  }
-              }
+        if (dbProduct.imageUrl.startsWith("http")) {
+          productImages.push(dbProduct.imageUrl);
+        } else {
+          // It's a relative path.
+          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+          // Stripe requires absolute URLs.
+          // Also, Stripe often rejects "localhost" as it cannot reach it to download the image.
+          // We only include the image if we have a valid public base URL.
+          if (
+            baseUrl &&
+            !baseUrl.includes("localhost") &&
+            !baseUrl.includes("127.0.0.1")
+          ) {
+            try {
+              // Construct absolute URL safely
+              // Remove leading slash from path if base has trailing, or vice versa
+              const cleanBase = baseUrl.endsWith("/")
+                ? baseUrl.slice(0, -1)
+                : baseUrl;
+              const cleanPath = dbProduct.imageUrl.startsWith("/")
+                ? dbProduct.imageUrl
+                : `/${dbProduct.imageUrl}`;
+              productImages.push(`${cleanBase}${cleanPath}`);
+            } catch (e) {
+              // ignore invalid url construction
+              console.warn("Invalid image URL construction", e);
+            }
           }
+        }
       }
 
       lineItems.push({
         price_data: {
           currency: "usd",
           product_data: {
-            name: dbProduct.name,
+            name: displayName,
+            ...(resolvedSize?.serves
+              ? { description: `Serves ${resolvedSize.serves}` }
+              : {}),
             images: productImages,
           },
           unit_amount: Math.round(unitPrice * 100),
@@ -111,6 +152,9 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
       orderItemsData.push({
         productId: dbProduct.id,
         productName: dbProduct.name,
+        productSizeId: resolvedSize?.id ?? null,
+        sizeName: resolvedSize?.name,
+        serves: resolvedSize?.serves,
         quantity: quantity,
         unitPrice: new Prisma.Decimal(unitPrice),
         lineTotal: new Prisma.Decimal(lineTotal),
@@ -124,16 +168,19 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
     // 3. Handle Delivery Fee
     let deliveryFee = 0;
     if (data.fulfillmentMethod === "delivery") {
-        const settings = await prisma.siteSetting.findFirst({
-            orderBy: { updatedAt: "desc" },
-        });
-        deliveryFee = Number(settings?.deliveryFee ?? 0);
+      const settings = await prisma.siteSetting.findFirst({
+        orderBy: { updatedAt: "desc" },
+      });
+      deliveryFee = Number(settings?.deliveryFee ?? 0);
 
-        // Optional: Check minimum order amount for delivery
-        if (settings?.minOrderDelivery && calculatedSubtotal < Number(settings.minOrderDelivery)) {
-             // You might want to throw an error here or handle it gracefully
-             console.warn("Order below minimum delivery amount");
-        }
+      // Optional: Check minimum order amount for delivery
+      if (
+        settings?.minOrderDelivery &&
+        calculatedSubtotal < Number(settings.minOrderDelivery)
+      ) {
+        // You might want to throw an error here or handle it gracefully
+        console.warn("Order below minimum delivery amount");
+      }
     }
 
     // Add delivery fee to Stripe line items
@@ -154,69 +201,51 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
 
     console.log("[YeneBakery] Calculated Total:", calculatedTotal);
 
-
     // 4. Create Pending Order in DB
-     // Fetch default status
-    const siteSettings = await prisma.siteSetting.findFirst({
-        orderBy: { updatedAt: "desc" },
-        include: { dashboardPendingStatus: true }
-    });
-
-    let defaultStatusId = siteSettings?.dashboardPendingStatusId;
-    
-    // Fallback if no setting
-    if (!defaultStatusId) {
-        const pendingStatus = await prisma.orderStatusEntry.findFirst({
-            where: { name: "Pending" }
-        });
-         if (pendingStatus) defaultStatusId = pendingStatus.id;
-    }
-    
-    // If still no status, fetch ANY status or create one (fallback safety)
-    if (!defaultStatusId) {
-         const anyStatus = await prisma.orderStatusEntry.findFirst();
-         if (anyStatus) defaultStatusId = anyStatus.id;
-         // If absolutely no statuses exist, this will fail. We assume DB is seeded.
-    }
-
-    if (!defaultStatusId) {
-        throwError("Server Error: No order status configured.");
-    }
+    const defaultStatusId = await resolveDefaultOrderStatusId();
 
     // Generate confirmation number: YB-ORD-[6_DIGIT_RANDOM]-[3_CHAR_RANDOM]-[YYMMDDHHMM]
     const now = new Date();
     // YYMMDDHHMM from UTC
-    const timestamp = now.toISOString().replace(/[T:-]/g, '').slice(2, 12); 
+    const timestamp = now.toISOString().replace(/[T:-]/g, "").slice(2, 12);
     const random6 = Math.floor(100000 + Math.random() * 900000).toString();
     const random3 = Math.random().toString(36).substring(2, 5).toUpperCase();
-    
+
     const confirmationNumber = `YB-ORD-${random6}-${random3}-${timestamp}`;
 
     // Parse logic for fulfillment date (assuming string input)
     const fulfillmentDate = new Date(data.fulfillmentDate);
 
     const order = await prisma.order.create({
-        data: {
-            confirmationNumber: confirmationNumber,
-            customerName: data.customerName,
-            customerEmail: data.customerEmail,
-            customerPhone: data.customerPhone,
-            businessName: data.businessName,
-            fulfillmentMethod: data.fulfillmentMethod === "pickup" ? FulfillmentMethod.pickup : FulfillmentMethod.delivery,
-            fulfillmentDate: fulfillmentDate,
-            pickupLocationId: data.fulfillmentMethod === "pickup" && data.pickupLocationId ? parseInt(data.pickupLocationId) : null,
-            deliveryAddress: data.fulfillmentMethod === "delivery" ? 
-                `${data.deliveryAddress}, ${data.deliveryCity}, ${data.deliveryState} ${data.deliveryZip}`.trim() : null,
-            subtotal: new Prisma.Decimal(calculatedSubtotal),
-            deliveryFee: new Prisma.Decimal(deliveryFee),
-            total: new Prisma.Decimal(calculatedTotal),
-            orderNotes: data.orderNotes,
-            orderStatusId: defaultStatusId,
-            paymentStatus: PaymentStatus.pending, // Defaults to pending
-            items: {
-                create: orderItemsData
-            }
-        }
+      data: {
+        confirmationNumber: confirmationNumber,
+        customerName: data.customerName,
+        customerEmail: data.customerEmail,
+        customerPhone: data.customerPhone,
+        businessName: data.businessName,
+        fulfillmentMethod:
+          data.fulfillmentMethod === "pickup"
+            ? FulfillmentMethod.pickup
+            : FulfillmentMethod.delivery,
+        fulfillmentDate: fulfillmentDate,
+        pickupLocationId:
+          data.fulfillmentMethod === "pickup" && data.pickupLocationId
+            ? parseInt(data.pickupLocationId)
+            : null,
+        deliveryAddress:
+          data.fulfillmentMethod === "delivery"
+            ? `${data.deliveryAddress}, ${data.deliveryCity}, ${data.deliveryState} ${data.deliveryZip}`.trim()
+            : null,
+        subtotal: new Prisma.Decimal(calculatedSubtotal),
+        deliveryFee: new Prisma.Decimal(deliveryFee),
+        total: new Prisma.Decimal(calculatedTotal),
+        orderNotes: data.orderNotes,
+        orderStatusId: defaultStatusId,
+        paymentStatus: PaymentStatus.pending, // Defaults to pending
+        items: {
+          create: orderItemsData,
+        },
+      },
     });
 
     // 5. Create Stripe Session with Order ID reference
@@ -228,7 +257,7 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
       customer_email: data.customerEmail,
       metadata: {
         orderId: order.id,
-        confirmationNumber: order.confirmationNumber
+        confirmationNumber: order.confirmationNumber,
       },
       return_url: `${process.env.NEXT_PUBLIC_BASE_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     });
@@ -237,7 +266,7 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
     await prisma.order.update({
       where: { id: order.id },
       // @ts-ignore - Schema updated but client not generated
-      data: { stripeSessionId: session.id } as any
+      data: { stripeSessionId: session.id } as any,
     });
 
     return { clientSecret: session.client_secret };
@@ -267,16 +296,19 @@ export async function getOrderFromSession(sessionId: string) {
     if (!order) {
       throwError("Order not found");
     }
-    
-    // We update payment status here just in case webhook is slow, 
-    // but typically webhook handles it. 
+
+    // We update payment status here just in case webhook is slow,
+    // but typically webhook handles it.
     // Optimization: If status is pending and session is paid, update it now.
-    if (order.paymentStatus === PaymentStatus.pending && session.payment_status === "paid") {
-         await prisma.order.update({
-             where: { id: order.id },
-             data: { paymentStatus: PaymentStatus.paid }
-         });
-         order.paymentStatus = PaymentStatus.paid;
+    if (
+      order.paymentStatus === PaymentStatus.pending &&
+      session.payment_status === "paid"
+    ) {
+      await prisma.order.update({
+        where: { id: order.id },
+        data: { paymentStatus: PaymentStatus.paid },
+      });
+      order.paymentStatus = PaymentStatus.paid;
     }
 
     return JSON.parse(JSON.stringify(order));
@@ -290,7 +322,73 @@ function throwError(msg: string): never {
   throw new Error(msg);
 }
 
-/* 
+async function resolveDefaultOrderStatusId(): Promise<number> {
+  const siteSettings = await prisma.siteSetting.findFirst({
+    orderBy: { updatedAt: "desc" },
+    include: { dashboardPendingStatus: true },
+  });
+
+  const configuredStatus = siteSettings?.dashboardPendingStatus;
+  if (configuredStatus && configuredStatus.isActive && !configuredStatus.deletedAt) {
+    return configuredStatus.id;
+  }
+
+  const pendingLikeStatus = await prisma.orderStatusEntry.findFirst({
+    where: {
+      isActive: true,
+      deletedAt: null,
+      OR: [{ name: "Pending" }, { name: "pending" }],
+    },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+  });
+  if (pendingLikeStatus) {
+    return pendingLikeStatus.id;
+  }
+
+  const pendingByName = await prisma.orderStatusEntry.findFirst({
+    where: {
+      OR: [{ name: "Pending" }, { name: "pending" }],
+    },
+    orderBy: [{ id: "asc" }],
+  });
+  if (pendingByName) {
+    const revivedPending = await prisma.orderStatusEntry.update({
+      where: { id: pendingByName.id },
+      data: {
+        isActive: true,
+        deletedAt: null,
+        updatedBy: "system",
+      },
+    });
+    return revivedPending.id;
+  }
+
+  const anyActiveStatus = await prisma.orderStatusEntry.findFirst({
+    where: {
+      isActive: true,
+      deletedAt: null,
+    },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+  });
+  if (anyActiveStatus) {
+    return anyActiveStatus.id;
+  }
+
+  const createdStatus = await prisma.orderStatusEntry.create({
+    data: {
+      name: "Pending",
+      description: "System default pending status",
+      sortOrder: 0,
+      isActive: true,
+      createdBy: "system",
+      updatedBy: "system",
+    },
+  });
+
+  return createdStatus.id;
+}
+
+/*
 // Unused function
 export async function getCheckoutSession(sessionId: string) {
   try {

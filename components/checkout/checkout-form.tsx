@@ -166,8 +166,13 @@ export function CheckoutForm() {
         fulfillmentDate: data.fulfillmentDate.toISOString(),
         pickupLocation,
         items: items.map((i) => ({
+          cart_key: i.cart_key,
           id: i.id,
+          slug: i.slug,
           name: i.name,
+          size_id: i.size_id,
+          size_name: i.size_name,
+          serves: i.serves,
           quantity: i.quantity,
           price: i.price,
           lineTotal: i.price * i.quantity,
@@ -180,7 +185,7 @@ export function CheckoutForm() {
         "YeneBakery_checkout_data",
         JSON.stringify(orderData),
       );
-      
+
       // Clear any previous payment session cache since we are starting a new checkout
       sessionStorage.removeItem("YeneBakery_stripe_client_secret");
 

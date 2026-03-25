@@ -4,7 +4,7 @@ import { Suspense } from "react";
 import { prisma } from "@/lib/prisma";
 import type { ShopCategory, ShopProduct } from "@/lib/shop-types";
 
-export const revalidate = 86400
+export const revalidate = 86400;
 
 async function getShopPageData() {
   const [categories, products] = await Promise.all([
@@ -43,12 +43,25 @@ async function getShopPageData() {
         slug: true,
         description: true,
         price: true,
+        hasSizes: true,
         imageUrl: true,
         prepLeadTimeDays: true,
         pickupAllowed: true,
         deliveryAllowed: true,
         isActive: true,
         sortOrder: true,
+        sizes: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            name: true,
+            serves: true,
+            price: true,
+            isActive: true,
+            sortOrder: true,
+          },
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+        },
         category: {
           select: {
             name: true,
@@ -58,16 +71,29 @@ async function getShopPageData() {
       },
       orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     }),
-  ])
+  ]);
 
   const mappedCategories: ShopCategory[] = categories.map((category) => ({
     id: category.id,
     name: category.name,
     slug: category.slug,
     image_url: category.imageUrl ?? "",
-  }))
+  }));
 
   const mappedProducts: ShopProduct[] = products.map((product) => ({
+    has_sizes: product.hasSizes,
+    min_price:
+      product.sizes.length > 0
+        ? Math.min(...product.sizes.map((size) => Number(size.price)))
+        : Number(product.price),
+    sizes: product.sizes.map((size) => ({
+      id: size.id,
+      name: size.name,
+      serves: size.serves ?? "",
+      price: Number(size.price),
+      is_active: size.isActive,
+      sort_order: size.sortOrder,
+    })),
     id: product.id,
     category_id: product.categoryId,
     name: product.name,
@@ -82,17 +108,23 @@ async function getShopPageData() {
     sort_order: product.sortOrder,
     category: product.category?.name,
     category_slug: product.category?.slug,
-  }))
+  }));
 
-  return { categories: mappedCategories, products: mappedProducts }
+  return { categories: mappedCategories, products: mappedProducts };
 }
 
 export default async function ShopPage() {
-  const { categories, products } = await getShopPageData()
+  const { categories, products } = await getShopPageData();
 
   return (
-    <Suspense fallback={<div className="mx-auto flex min-h-[50vh] items-center justify-center">Loading shop...</div>}>
+    <Suspense
+      fallback={
+        <div className="mx-auto flex min-h-[50vh] items-center justify-center">
+          Loading shop...
+        </div>
+      }
+    >
       <ShopPageClient categories={categories} products={products} />
     </Suspense>
-  )
+  );
 }

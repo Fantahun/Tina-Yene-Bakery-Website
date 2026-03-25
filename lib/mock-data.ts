@@ -15,6 +15,8 @@ export interface Product {
   slug: string;
   description: string;
   price: number;
+  has_sizes?: boolean;
+  sizes?: ProductSize[];
   image_url: string;
   prep_lead_time_days: number;
   pickup_allowed: boolean;
@@ -22,6 +24,15 @@ export interface Product {
   is_active: boolean;
   sort_order: number;
   category?: string;
+}
+
+export interface ProductSize {
+  id?: number;
+  name: string;
+  serves?: string;
+  price: number;
+  is_active: boolean;
+  sort_order: number;
 }
 
 export interface PickupLocation {
@@ -326,6 +337,8 @@ export interface Order {
   created_at: string;
   items: Array<{
     product_name: string;
+    size_name?: string;
+    serves?: string;
     quantity: number;
     unit_price: number;
     line_total: number;

@@ -1,7 +1,8 @@
-"use client"
+"use client";
 
-import { useState, useEffect } from "react"
-import { type Product, type Category } from "@/lib/mock-data"
+import { useState, useEffect } from "react";
+import { type Product, type Category, type ProductSize } from "@/lib/mock-data";
+import { Plus, Trash2 } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -9,27 +10,27 @@ import {
   DialogHeader,
   DialogTitle,
   DialogFooter,
-} from "@/components/ui/dialog"
-import { Button } from "@/components/ui/button"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Textarea } from "@/components/ui/textarea"
-import { Switch } from "@/components/ui/switch"
+} from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
-import { toast } from "sonner"
-import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+} from "@/components/ui/select";
+import { toast } from "sonner";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 
 interface EditProductDialogProps {
-  product: Product | null
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  onSaved?: () => void
+  product: Product | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved?: () => void;
 }
 
 export function EditProductDialog({
@@ -38,43 +39,45 @@ export function EditProductDialog({
   onOpenChange,
   onSaved,
 }: EditProductDialogProps) {
-  const [isSaving, setIsSaving] = useState(false)
-  const [isConfirmOpen, setIsConfirmOpen] = useState(false)
+  const [isSaving, setIsSaving] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [formData, setFormData] = useState({
     name: product?.name || "",
     description: product?.description || "",
     image_url: product?.image_url || "",
     category_id: product?.category_id || 0,
     price: product?.price || 0,
+    has_sizes: product?.has_sizes ?? false,
+    sizes: product?.sizes ?? [],
     prep_lead_time_days: product?.prep_lead_time_days || 0,
     pickup_allowed: product?.pickup_allowed ?? true,
     delivery_allowed: product?.delivery_allowed ?? true,
     is_active: product?.is_active ?? true,
-  })
+  });
 
-  const [categories, setCategories] = useState<Category[]>([])
-  const [isLoadingCategories, setIsLoadingCategories] = useState(false)
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
   useEffect(() => {
     const loadCategories = async () => {
-      setIsLoadingCategories(true)
+      setIsLoadingCategories(true);
       try {
-        const res = await fetch("/api/admin/categories")
-        if (!res.ok) throw new Error("Failed to load categories")
-        const data = (await res.json()) as Category[]
-        setCategories(data)
+        const res = await fetch("/api/admin/categories");
+        if (!res.ok) throw new Error("Failed to load categories");
+        const data = (await res.json()) as Category[];
+        setCategories(data);
         if (!product && data.length > 0 && formData.category_id === 0) {
-          setFormData((prev) => ({ ...prev, category_id: data[0].id }))
+          setFormData((prev) => ({ ...prev, category_id: data[0].id }));
         }
       } catch {
-        setCategories([])
+        setCategories([]);
       } finally {
-        setIsLoadingCategories(false)
+        setIsLoadingCategories(false);
       }
-    }
+    };
 
-    loadCategories()
-  }, [product])
+    loadCategories();
+  }, [product]);
 
   useEffect(() => {
     setFormData({
@@ -83,60 +86,113 @@ export function EditProductDialog({
       image_url: product?.image_url || "",
       category_id: product?.category_id || 0,
       price: product?.price || 0,
+      has_sizes: product?.has_sizes ?? false,
+      sizes: product?.sizes ?? [],
       prep_lead_time_days: product?.prep_lead_time_days || 0,
       pickup_allowed: product?.pickup_allowed ?? true,
       delivery_allowed: product?.delivery_allowed ?? true,
       is_active: product?.is_active ?? true,
-    })
-  }, [product, open])
+    });
+  }, [product, open]);
 
-  const isDev = process.env.NODE_ENV === "development"
+  const isDev = process.env.NODE_ENV === "development";
   const previewUrl = (() => {
-    if (!formData.image_url) return ""
-    if (!isDev) return formData.image_url
-    if (!formData.image_url.startsWith("http")) return formData.image_url
+    if (!formData.image_url) return "";
+    if (!isDev) return formData.image_url;
+    if (!formData.image_url.startsWith("http")) return formData.image_url;
     try {
-      return new URL(formData.image_url).pathname || formData.image_url
+      return new URL(formData.image_url).pathname || formData.image_url;
     } catch {
-      return formData.image_url
+      return formData.image_url;
     }
-  })()
+  })();
 
   const handleSave = async () => {
-    setIsSaving(true)
+    setIsSaving(true);
     try {
       const payload = {
         ...formData,
         id: product?.id,
-      }
+        sizes: formData.sizes.map((size, index) => ({
+          id: size.id,
+          name: size.name,
+          serves: size.serves,
+          price: size.price,
+          is_active: size.is_active,
+          sort_order: Number.isFinite(size.sort_order)
+            ? size.sort_order
+            : index,
+        })),
+      };
 
       const res = await fetch("/api/admin/products", {
         method: product ? "PUT" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
-      })
+      });
 
       if (!res.ok) {
-        const data = await res.json().catch(() => null)
-        throw new Error(data?.error || "Failed to save product")
+        const data = await res.json().catch(() => null);
+        throw new Error(data?.error || "Failed to save product");
       }
 
-      toast.success(product ? "Product updated successfully" : "Product created successfully")
-      onOpenChange(false)
-      onSaved?.()
+      toast.success(
+        product
+          ? "Product updated successfully"
+          : "Product created successfully",
+      );
+      onOpenChange(false);
+      onSaved?.();
     } catch (error) {
-      const message = error instanceof Error ? error.message : "Failed to save product"
-      toast.error(message)
+      const message =
+        error instanceof Error ? error.message : "Failed to save product";
+      toast.error(message);
     } finally {
-      setIsSaving(false)
+      setIsSaving(false);
     }
-  }
+  };
+
+  const addSizeRow = () => {
+    setFormData((prev) => ({
+      ...prev,
+      sizes: [
+        ...prev.sizes,
+        {
+          name: "",
+          serves: "",
+          price: 0,
+          is_active: true,
+          sort_order: prev.sizes.length,
+        },
+      ],
+    }));
+  };
+
+  const updateSizeRow = (index: number, patch: Partial<ProductSize>) => {
+    setFormData((prev) => ({
+      ...prev,
+      sizes: prev.sizes.map((size, rowIndex) =>
+        rowIndex === index ? { ...size, ...patch } : size,
+      ),
+    }));
+  };
+
+  const removeSizeRow = (index: number) => {
+    setFormData((prev) => ({
+      ...prev,
+      sizes: prev.sizes
+        .filter((_, rowIndex) => rowIndex !== index)
+        .map((size, rowIndex) => ({ ...size, sort_order: rowIndex })),
+    }));
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{product ? "Edit Product" : "Add New Product"}</DialogTitle>
+          <DialogTitle>
+            {product ? "Edit Product" : "Add New Product"}
+          </DialogTitle>
           <DialogDescription>
             {product
               ? "Update product details and availability"
@@ -176,27 +232,31 @@ export function EditProductDialog({
               <div className="space-y-2">
                 <Label htmlFor="category">Category</Label>
                 <Select
-                    value={String(formData.category_id || "")}
-                    onValueChange={(value) =>
-                        setFormData({ ...formData, category_id: Number(value) })
-                    }
-                    disabled={isLoadingCategories}
+                  value={String(formData.category_id || "")}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, category_id: Number(value) })
+                  }
+                  disabled={isLoadingCategories}
                 >
                   <SelectTrigger id="category">
-                    <SelectValue placeholder={isLoadingCategories ? "Loading..." : "Select a category"} />
+                    <SelectValue
+                      placeholder={
+                        isLoadingCategories ? "Loading..." : "Select a category"
+                      }
+                    />
                   </SelectTrigger>
                   <SelectContent>
                     {categories.map((category) => (
-                        <SelectItem key={category.id} value={String(category.id)}>
-                          {category.name}
-                        </SelectItem>
+                      <SelectItem key={category.id} value={String(category.id)}>
+                        {category.name}
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
             </div>
 
-             {/*product url section*/}
+            {/*product url section*/}
             <div className="space-y-2">
               <Label htmlFor="image_url">Image URL</Label>
               <Input
@@ -230,10 +290,19 @@ export function EditProductDialog({
                   min="0"
                   value={formData.price}
                   onChange={(e) =>
-                    setFormData({ ...formData, price: parseFloat(e.target.value) })
+                    setFormData({
+                      ...formData,
+                      price: parseFloat(e.target.value),
+                    })
                   }
                   placeholder="0.00"
+                  disabled={formData.has_sizes}
                 />
+                {formData.has_sizes ? (
+                  <p className="text-xs text-muted-foreground">
+                    Base price is disabled when size pricing is enabled.
+                  </p>
+                ) : null}
               </div>
 
               <div className="space-y-2">
@@ -255,6 +324,122 @@ export function EditProductDialog({
                   0 = Same-day allowed, 1 = Next-day, 2+ = Advance order
                 </p>
               </div>
+            </div>
+
+            <div className="space-y-4 rounded-lg border border-border p-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="has_sizes">
+                    This product has size options
+                  </Label>
+                  <p className="text-xs text-muted-foreground">
+                    Use size-specific pricing and serving ranges.
+                  </p>
+                </div>
+                <Switch
+                  id="has_sizes"
+                  checked={formData.has_sizes}
+                  onCheckedChange={(checked) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      has_sizes: checked,
+                      sizes:
+                        checked && prev.sizes.length === 0
+                          ? [
+                              {
+                                name: "Small",
+                                serves: "",
+                                price: 0,
+                                is_active: true,
+                                sort_order: 0,
+                              },
+                            ]
+                          : prev.sizes,
+                    }))
+                  }
+                />
+              </div>
+
+              {formData.has_sizes ? (
+                <div className="space-y-3">
+                  {formData.sizes.map((size, index) => (
+                    <div
+                      key={`${size.id ?? "new"}-${index}`}
+                      className="space-y-3 rounded-md border border-border p-3"
+                    >
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div className="space-y-1">
+                          <Label>Size Name</Label>
+                          <Input
+                            value={size.name}
+                            onChange={(e) =>
+                              updateSizeRow(index, { name: e.target.value })
+                            }
+                            placeholder="e.g., 1/4 Sheet"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Price ($)</Label>
+                          <Input
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={size.price}
+                            onChange={(e) =>
+                              updateSizeRow(index, {
+                                price: Number(e.target.value) || 0,
+                              })
+                            }
+                            placeholder="0.00"
+                          />
+                        </div>
+                        <div className="space-y-1">
+                          <Label>Serves</Label>
+                          <Input
+                            value={size.serves ?? ""}
+                            onChange={(e) =>
+                              updateSizeRow(index, { serves: e.target.value })
+                            }
+                            placeholder="12 - 14 people"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Switch
+                            checked={size.is_active}
+                            onCheckedChange={(checked) =>
+                              updateSizeRow(index, { is_active: checked })
+                            }
+                          />
+                          <span className="text-xs text-muted-foreground">
+                            Active
+                          </span>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeSizeRow(index)}
+                          className="gap-1.5 text-destructive hover:text-destructive"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={addSizeRow}
+                    className="gap-2"
+                  >
+                    <Plus className="h-4 w-4" />
+                    Add Size
+                  </Button>
+                </div>
+              ) : null}
             </div>
           </div>
 
@@ -319,8 +504,6 @@ export function EditProductDialog({
               />
             </div>
           </div>
-
-
         </div>
 
         <DialogFooter>
@@ -328,7 +511,11 @@ export function EditProductDialog({
             Cancel
           </Button>
           <Button onClick={() => setIsConfirmOpen(true)} disabled={isSaving}>
-            {isSaving ? "Saving..." : product ? "Update Product" : "Create Product"}
+            {isSaving
+              ? "Saving..."
+              : product
+                ? "Update Product"
+                : "Create Product"}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -345,5 +532,5 @@ export function EditProductDialog({
         onConfirm={handleSave}
       />
     </Dialog>
-  )
+  );
 }

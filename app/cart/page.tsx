@@ -28,7 +28,7 @@ export default function CartPage() {
 
   const { isMixed, groups } = detectMixedLeadTimes(
     items.map((i) => ({
-      id: i.id,
+      id: i.cart_key,
       name: i.name,
       prep_lead_time_days: i.prep_lead_time_days,
     }))
@@ -115,7 +115,7 @@ export default function CartPage() {
         {/* Cart Items */}
         <div className="space-y-4 lg:col-span-2">
           {items.map((item) => (
-            <CartItem key={item.id} item={item} />
+            <CartItem key={item.cart_key} item={item} />
           ))}
 
           <Link
