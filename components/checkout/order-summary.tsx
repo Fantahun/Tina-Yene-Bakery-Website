@@ -1,23 +1,21 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import { useAppSelector } from "@/store/hooks"
-import { selectCartItems, selectCartSubtotal } from "@/store/cart-slice"
-import { Separator } from "@/components/ui/separator"
+import Image from "next/image";
+import { useAppSelector } from "@/store/hooks";
+import { selectCartItems, selectCartSubtotal } from "@/store/cart-slice";
+import { Separator } from "@/components/ui/separator";
 
 export function OrderSummary() {
-  const items = useAppSelector(selectCartItems)
-  const subtotal = useAppSelector(selectCartSubtotal)
+  const items = useAppSelector(selectCartItems);
+  const subtotal = useAppSelector(selectCartSubtotal);
 
   return (
     <div className="rounded-lg border border-border bg-card p-6">
-      <h2 className="text-lg font-semibold text-card-foreground">
-        Your Order
-      </h2>
+      <h2 className="text-lg font-semibold text-card-foreground">Your Order</h2>
 
       <div className="mt-4 space-y-3">
         {items.map((item) => (
-          <div key={item.id} className="flex items-center gap-3">
+          <div key={item.cart_key} className="flex items-center gap-3">
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md">
               <Image
                 src={item.image_url}
@@ -34,6 +32,16 @@ export function OrderSummary() {
               <p className="text-sm font-medium text-card-foreground">
                 {item.name}
               </p>
+              {item.size_name ? (
+                <p className="text-xs text-foreground">
+                  Size: {item.size_name}
+                </p>
+              ) : null}
+              {item.serves ? (
+                <p className="text-xs text-muted-foreground">
+                  Serves: {item.serves}
+                </p>
+              ) : null}
               <p className="text-xs text-muted-foreground">
                 ${item.price.toFixed(2)} each
               </p>
@@ -52,5 +60,5 @@ export function OrderSummary() {
         <span className="font-semibold">${subtotal.toFixed(2)}</span>
       </div>
     </div>
-  )
+  );
 }

@@ -1,27 +1,36 @@
-"use client"
+"use client";
 
-import Image from "next/image"
-import Link from "next/link"
-import { ShoppingBag } from "lucide-react"
-import { toast } from "sonner"
-import type { ShopProduct } from "@/lib/shop-types"
-import { useAppDispatch } from "@/store/hooks"
-import { addToCart } from "@/store/cart-slice"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
+import Image from "next/image";
+import Link from "next/link";
+import { ShoppingBag } from "lucide-react";
+import { toast } from "sonner";
+import type { ShopProduct } from "@/lib/shop-types";
+import { useAppDispatch } from "@/store/hooks";
+import { addToCart } from "@/store/cart-slice";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 
 interface ProductCardProps {
-  product: ShopProduct
+  product: ShopProduct;
 }
 
 export function ProductCard({ product }: ProductCardProps) {
-  const dispatch = useAppDispatch()
+  const dispatch = useAppDispatch();
+  const activeSizes = (product.sizes ?? []).filter((size) => size.is_active);
+  const hasSelectableSizes = Boolean(
+    product.has_sizes && activeSizes.length > 0,
+  );
+  const minPrice = hasSelectableSizes
+    ? Math.min(...activeSizes.map((size) => size.price))
+    : product.price;
 
   const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault()
+    e.preventDefault();
     dispatch(
       addToCart({
+        cart_key: `product-${product.id}`,
         id: product.id,
+        slug: product.slug,
         name: product.name,
         price: product.price,
         image_url: product.image_url,
@@ -29,10 +38,10 @@ export function ProductCard({ product }: ProductCardProps) {
         prep_lead_time_days: product.prep_lead_time_days,
         pickup_allowed: product.pickup_allowed,
         delivery_allowed: product.delivery_allowed,
-      })
-    )
-    toast.success(`${product.name} added to cart`)
-  }
+      }),
+    );
+    toast.success(`${product.name} added to cart`);
+  };
 
   return (
     <Link
@@ -52,7 +61,8 @@ export function ProductCard({ product }: ProductCardProps) {
             variant="secondary"
             className="absolute left-3 top-3 bg-background/90 text-foreground"
           >
-            {product.prep_lead_time_days} day{product.prep_lead_time_days > 1 ? "s" : ""} lead time
+            {product.prep_lead_time_days} day
+            {product.prep_lead_time_days > 1 ? "s" : ""} lead time
           </Badge>
         )}
       </div>
@@ -68,18 +78,22 @@ export function ProductCard({ product }: ProductCardProps) {
         </p>
         <div className="mt-4 flex items-center justify-between">
           <span className="text-lg font-bold text-foreground">
-            ${product.price.toFixed(2)}
+            {hasSelectableSizes
+              ? `From $${minPrice.toFixed(2)}`
+              : `$${product.price.toFixed(2)}`}
           </span>
-          <Button
-            size="sm"
-            onClick={handleAddToCart}
-            className="gap-2"
-          >
-            <ShoppingBag className="h-4 w-4" />
-            <span className="sr-only sm:not-sr-only">Add</span>
-          </Button>
+          {hasSelectableSizes ? (
+            <span className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
+              Select Options
+            </span>
+          ) : (
+            <Button size="sm" onClick={handleAddToCart} className="gap-2">
+              <ShoppingBag className="h-4 w-4" />
+              <span className="sr-only sm:not-sr-only">Add</span>
+            </Button>
+          )}
         </div>
       </div>
     </Link>
-  )
+  );
 }

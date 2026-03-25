@@ -49,12 +49,25 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
       slug: true,
       description: true,
       price: true,
+      hasSizes: true,
       imageUrl: true,
       prepLeadTimeDays: true,
       pickupAllowed: true,
       deliveryAllowed: true,
       isActive: true,
       sortOrder: true,
+      sizes: {
+        where: { isActive: true },
+        select: {
+          id: true,
+          name: true,
+          serves: true,
+          price: true,
+          isActive: true,
+          sortOrder: true,
+        },
+        orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+      },
       category: {
         select: {
           name: true,
@@ -69,6 +82,19 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
   }
 
   const mappedProduct: ShopProduct = {
+    has_sizes: product.hasSizes,
+    min_price:
+      product.sizes.length > 0
+        ? Math.min(...product.sizes.map((size) => Number(size.price)))
+        : Number(product.price),
+    sizes: product.sizes.map((size) => ({
+      id: size.id,
+      name: size.name,
+      serves: size.serves ?? "",
+      price: Number(size.price),
+      is_active: size.isActive,
+      sort_order: size.sortOrder,
+    })),
     id: product.id,
     category_id: product.categoryId,
     name: product.name,

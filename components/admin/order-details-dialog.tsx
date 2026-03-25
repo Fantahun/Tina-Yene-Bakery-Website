@@ -263,6 +263,12 @@ export function OrderDetailsDialog({
                 >
                   <div>
                     <p className="font-medium text-foreground">{item.product_name}</p>
+                    {item.size_name ? (
+                      <p className="text-xs text-foreground">Size: {item.size_name}</p>
+                    ) : null}
+                    {item.serves ? (
+                      <p className="text-xs text-muted-foreground">Serves: {item.serves}</p>
+                    ) : null}
                     <p className="text-xs text-muted-foreground">
                       Qty: {item.quantity} × ${item.unit_price.toFixed(2)}
                     </p>

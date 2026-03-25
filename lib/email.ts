@@ -1,5 +1,5 @@
-import nodemailer from 'nodemailer';
-import { Order, OrderItem, PickupLocation } from '@prisma/client';
+import nodemailer from "nodemailer";
+import { Order, OrderItem, PickupLocation } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 
 export async function sendEmail({
@@ -18,7 +18,7 @@ export async function sendEmail({
   const transporter = nodemailer.createTransport({
     host: process.env.EMAIL_HOST,
     port: Number(process.env.EMAIL_PORT) || 587,
-    secure: process.env.SMTP_SECURE === 'true', // true for 465, false for other ports
+    secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
     auth: {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
@@ -43,15 +43,15 @@ export async function sendEmail({
 }
 
 export async function sendOrderConfirmationEmail(
-  order: Order & { items: OrderItem[]; pickupLocation: PickupLocation | null }
+  order: Order & { items: OrderItem[]; pickupLocation: PickupLocation | null },
 ) {
   const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://yenebakery.com";
-  
+
   // Format currency
   const formatCurrency = (amount: number | string | any) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: 'USD',
+    return new Intl.NumberFormat("en-US", {
+      style: "currency",
+      currency: "USD",
     }).format(Number(amount));
   };
 
@@ -61,13 +61,17 @@ export async function sendOrderConfirmationEmail(
   });
   const storePhone = settings?.storePhone || "510-500-1234";
 
-  const fulfillmentMethodDisplay = 
-    order.fulfillmentMethod === 'pickup' ? 'Store Pickup' : 'Delivery';
+  const fulfillmentMethodDisplay =
+    order.fulfillmentMethod === "pickup" ? "Store Pickup" : "Delivery";
 
-  const itemsHtml = order.items.map(item => `
+  const itemsHtml = order.items
+    .map(
+      (item) => `
     <tr>
       <td style="padding: 12px; border-bottom: 1px solid #e5e7eb;">
         <p style="margin: 0; font-weight: 500; color: #111827;">${item.productName}</p>
+        ${item.sizeName ? `<p style="margin: 2px 0 0; font-size: 12px; color: #4b5563;">Size: ${item.sizeName}</p>` : ""}
+        ${item.serves ? `<p style="margin: 2px 0 0; font-size: 12px; color: #6b7280;">Serves: ${item.serves}</p>` : ""}
       </td>
       <td style="padding: 12px; border-bottom: 1px solid #e5e7eb; text-align: center;">
         ${item.quantity}
@@ -79,7 +83,9 @@ export async function sendOrderConfirmationEmail(
         ${formatCurrency(item.lineTotal)}
       </td>
     </tr>
-  `).join('');
+  `,
+    )
+    .join("");
 
   const html = `
     <!DOCTYPE html>
@@ -137,10 +143,10 @@ export async function sendOrderConfirmationEmail(
             </div>
 
             <div class="info-item">
-               <span class="label">${order.fulfillmentMethod === 'pickup' ? 'Pickup Location' : 'Delivery Address'}</span>
+               <span class="label">${order.fulfillmentMethod === "pickup" ? "Pickup Location" : "Delivery Address"}</span>
                <div class="value">
-                 ${order.fulfillmentMethod === 'pickup' && order.pickupLocation ? order.pickupLocation.name + ' - ' + order.pickupLocation.address : ''}
-                 ${order.fulfillmentMethod === 'delivery' ? order.deliveryAddress : ''}
+                 ${order.fulfillmentMethod === "pickup" && order.pickupLocation ? order.pickupLocation.name + " - " + order.pickupLocation.address : ""}
+                 ${order.fulfillmentMethod === "delivery" ? order.deliveryAddress : ""}
                </div>
             </div>
 
@@ -170,12 +176,16 @@ export async function sendOrderConfirmationEmail(
               <span>Subtotal</span>
               <span>${formatCurrency(order.subtotal)}</span>
             </div>
-            ${Number(order.deliveryFee) > 0 ? `
+            ${
+              Number(order.deliveryFee) > 0
+                ? `
             <div class="total-row">
               <span>Delivery Fee</span>
               <span>${formatCurrency(order.deliveryFee)}</span>
             </div>
-            ` : ''}
+            `
+                : ""
+            }
             <div class="total-row final">
               <span>Total</span>
               <span>${formatCurrency(order.total)}</span>
@@ -183,7 +193,7 @@ export async function sendOrderConfirmationEmail(
           </div>
 
           <div style="text-align: center; margin-top: 40px;">
-             <p>If you have any questions, please contact us at <a href="tel:${storePhone.replace(/\D/g, '')}">${storePhone}</a> or reply to this email.</p>
+             <p>If you have any questions, please contact us at <a href="tel:${storePhone.replace(/\D/g, "")}">${storePhone}</a> or reply to this email.</p>
           </div>
         </div>
         
@@ -197,7 +207,7 @@ export async function sendOrderConfirmationEmail(
 
   return sendEmail({
     to: order.customerEmail,
-    from: `"Yene Bakery" <${process.env.EMAIL_USER || 'orders@yenebakery.com'}>`, // Needs to be verified sender
+    from: `"Yene Bakery" <${process.env.EMAIL_USER || "orders@yenebakery.com"}>`, // Needs to be verified sender
     subject: `Order Confirmation #${order.confirmationNumber} - Yene Bakery`,
     text: `Thank you for your order! Your confirmation number is ${order.confirmationNumber}. Total: ${formatCurrency(order.total)}.`,
     html: html,
