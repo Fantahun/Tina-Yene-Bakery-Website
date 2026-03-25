@@ -17,12 +17,10 @@ interface ProductCardProps {
 export function ProductCard({ product }: ProductCardProps) {
   const dispatch = useAppDispatch();
   const activeSizes = (product.sizes ?? []).filter((size) => size.is_active);
-  const hasSelectableSizes = Boolean(
-    product.has_sizes && activeSizes.length > 0,
-  );
+  const hasSelectableSizes = Boolean(product.has_sizes && activeSizes.length > 0);
   const minPrice = hasSelectableSizes
     ? Math.min(...activeSizes.map((size) => size.price))
-    : product.price;
+    : (product.min_price ?? product.price);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -78,11 +76,11 @@ export function ProductCard({ product }: ProductCardProps) {
         </p>
         <div className="mt-4 flex items-center justify-between">
           <span className="text-lg font-bold text-foreground">
-            {hasSelectableSizes
+            {product.has_sizes
               ? `From $${minPrice.toFixed(2)}`
               : `$${product.price.toFixed(2)}`}
           </span>
-          {hasSelectableSizes ? (
+          {product.has_sizes ? (
             <span className="inline-flex h-9 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
               Select Options
             </span>

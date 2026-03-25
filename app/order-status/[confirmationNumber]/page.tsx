@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
+import { getOrderItemLineParts } from "@/lib/order-item-line";
 
 const statusColors: Record<string, string> = {
   pending: "bg-orange-100 text-orange-800",
@@ -215,34 +216,49 @@ export default async function OrderStatusResultPage({
             Order Items
           </h3>
           <div className="mt-3 space-y-2">
-            {order.items.map((item: any, idx: number) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between text-sm"
-              >
-                <div className="flex gap-2">
-                  <span className="font-mono text-muted-foreground">
-                    {item.quantity}x
-                  </span>
-                  <div>
-                    <span className="text-foreground">{item.productName}</span>
-                    {item.sizeName ? (
-                      <p className="text-xs text-muted-foreground">
-                        Size: {item.sizeName}
+            {order.items.map((item: any, idx: number) => {
+              const parts = getOrderItemLineParts({
+                quantity: item.quantity,
+                productName: item.productName,
+                sizeName: item.sizeName,
+                serves: item.serves,
+              });
+
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <div className="flex items-start gap-2">
+                    <span className="font-mono text-muted-foreground">
+                      {parts.quantityText}
+                    </span>
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {parts.productText}
                       </p>
-                    ) : null}
-                    {item.serves ? (
-                      <p className="text-xs text-muted-foreground">
-                        Serves: {item.serves}
-                      </p>
-                    ) : null}
+                      {(parts.sizeText || parts.servesText) && (
+                        <div className="mt-0.5 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          {parts.sizeText ? (
+                            <span className="rounded bg-muted px-1.5 py-0.5">
+                              Size: {parts.sizeText}
+                            </span>
+                          ) : null}
+                          {parts.servesText ? (
+                            <span className="rounded bg-muted px-1.5 py-0.5">
+                              Serves: {parts.servesText}
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
                   </div>
+                  <span className="font-medium">
+                    ${Number(item.lineTotal).toFixed(2)}
+                  </span>
                 </div>
-                <span className="font-medium">
-                  ${Number(item.lineTotal).toFixed(2)}
-                </span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
 

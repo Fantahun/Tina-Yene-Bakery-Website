@@ -65,7 +65,7 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
     // 2. Calculate line items and totals
     let calculatedSubtotal = 0;
     const lineItems: Stripe.Checkout.SessionCreateParams.LineItem[] = [];
-    const orderItemsData: Prisma.OrderItemCreateManyOrderInput[] = [];
+    const orderItemsData: Array<Prisma.OrderItemCreateManyOrderInput & { productSizeId?: number | null }> = [];
 
     for (const item of data.items) {
       const dbProduct = dbProducts.find((p) => p.id === item.id);
@@ -152,6 +152,7 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
       orderItemsData.push({
         productId: dbProduct.id,
         productName: dbProduct.name,
+        productSizeId: resolvedSize?.id ?? null,
         sizeName: resolvedSize?.name,
         serves: resolvedSize?.serves,
         quantity: quantity,
@@ -201,32 +202,7 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
     console.log("[YeneBakery] Calculated Total:", calculatedTotal);
 
     // 4. Create Pending Order in DB
-    // Fetch default status
-    const siteSettings = await prisma.siteSetting.findFirst({
-      orderBy: { updatedAt: "desc" },
-      include: { dashboardPendingStatus: true },
-    });
-
-    let defaultStatusId = siteSettings?.dashboardPendingStatusId;
-
-    // Fallback if no setting
-    if (!defaultStatusId) {
-      const pendingStatus = await prisma.orderStatusEntry.findFirst({
-        where: { name: "Pending" },
-      });
-      if (pendingStatus) defaultStatusId = pendingStatus.id;
-    }
-
-    // If still no status, fetch ANY status or create one (fallback safety)
-    if (!defaultStatusId) {
-      const anyStatus = await prisma.orderStatusEntry.findFirst();
-      if (anyStatus) defaultStatusId = anyStatus.id;
-      // If absolutely no statuses exist, this will fail. We assume DB is seeded.
-    }
-
-    if (!defaultStatusId) {
-      throwError("Server Error: No order status configured.");
-    }
+    const defaultStatusId = await resolveDefaultOrderStatusId();
 
     // Generate confirmation number: YB-ORD-[6_DIGIT_RANDOM]-[3_CHAR_RANDOM]-[YYMMDDHHMM]
     const now = new Date();
@@ -346,7 +322,73 @@ function throwError(msg: string): never {
   throw new Error(msg);
 }
 
-/* 
+async function resolveDefaultOrderStatusId(): Promise<number> {
+  const siteSettings = await prisma.siteSetting.findFirst({
+    orderBy: { updatedAt: "desc" },
+    include: { dashboardPendingStatus: true },
+  });
+
+  const configuredStatus = siteSettings?.dashboardPendingStatus;
+  if (configuredStatus && configuredStatus.isActive && !configuredStatus.deletedAt) {
+    return configuredStatus.id;
+  }
+
+  const pendingLikeStatus = await prisma.orderStatusEntry.findFirst({
+    where: {
+      isActive: true,
+      deletedAt: null,
+      OR: [{ name: "Pending" }, { name: "pending" }],
+    },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+  });
+  if (pendingLikeStatus) {
+    return pendingLikeStatus.id;
+  }
+
+  const pendingByName = await prisma.orderStatusEntry.findFirst({
+    where: {
+      OR: [{ name: "Pending" }, { name: "pending" }],
+    },
+    orderBy: [{ id: "asc" }],
+  });
+  if (pendingByName) {
+    const revivedPending = await prisma.orderStatusEntry.update({
+      where: { id: pendingByName.id },
+      data: {
+        isActive: true,
+        deletedAt: null,
+        updatedBy: "system",
+      },
+    });
+    return revivedPending.id;
+  }
+
+  const anyActiveStatus = await prisma.orderStatusEntry.findFirst({
+    where: {
+      isActive: true,
+      deletedAt: null,
+    },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+  });
+  if (anyActiveStatus) {
+    return anyActiveStatus.id;
+  }
+
+  const createdStatus = await prisma.orderStatusEntry.create({
+    data: {
+      name: "Pending",
+      description: "System default pending status",
+      sortOrder: 0,
+      isActive: true,
+      createdBy: "system",
+      updatedBy: "system",
+    },
+  });
+
+  return createdStatus.id;
+}
+
+/*
 // Unused function
 export async function getCheckoutSession(sessionId: string) {
   try {

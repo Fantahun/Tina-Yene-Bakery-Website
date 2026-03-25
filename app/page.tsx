@@ -77,12 +77,25 @@ async function getHomeData() {
         slug: true,
         description: true,
         price: true,
+        hasSizes: true,
         imageUrl: true,
         prepLeadTimeDays: true,
         pickupAllowed: true,
         deliveryAllowed: true,
         isActive: true,
         sortOrder: true,
+        sizes: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            name: true,
+            serves: true,
+            price: true,
+            isActive: true,
+            sortOrder: true,
+          },
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+        },
         category: {
           select: {
             name: true,
@@ -96,6 +109,19 @@ async function getHomeData() {
     featuredProducts = products
       .sort((a, b) => (orderIndex.get(a.id) ?? 0) - (orderIndex.get(b.id) ?? 0))
       .map((product) => ({
+        has_sizes: product.hasSizes,
+        min_price:
+          product.sizes.length > 0
+            ? Math.min(...product.sizes.map((size) => Number(size.price)))
+            : Number(product.price),
+        sizes: product.sizes.map((size) => ({
+          id: size.id,
+          name: size.name,
+          serves: size.serves ?? "",
+          price: Number(size.price),
+          is_active: size.isActive,
+          sort_order: size.sortOrder,
+        })),
         id: product.id,
         category_id: product.categoryId,
         name: product.name,
@@ -128,12 +154,25 @@ async function getHomeData() {
         slug: true,
         description: true,
         price: true,
+        hasSizes: true,
         imageUrl: true,
         prepLeadTimeDays: true,
         pickupAllowed: true,
         deliveryAllowed: true,
         isActive: true,
         sortOrder: true,
+        sizes: {
+          where: { isActive: true },
+          select: {
+            id: true,
+            name: true,
+            serves: true,
+            price: true,
+            isActive: true,
+            sortOrder: true,
+          },
+          orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+        },
         category: {
           select: {
             name: true,
@@ -146,6 +185,19 @@ async function getHomeData() {
     })
 
     featuredProducts = products.map((product) => ({
+      has_sizes: product.hasSizes,
+      min_price:
+        product.sizes.length > 0
+          ? Math.min(...product.sizes.map((size) => Number(size.price)))
+          : Number(product.price),
+      sizes: product.sizes.map((size) => ({
+        id: size.id,
+        name: size.name,
+        serves: size.serves ?? "",
+        price: Number(size.price),
+        is_active: size.isActive,
+        sort_order: size.sortOrder,
+      })),
       id: product.id,
       category_id: product.categoryId,
       name: product.name,

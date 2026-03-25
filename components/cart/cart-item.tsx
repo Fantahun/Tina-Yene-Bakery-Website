@@ -29,6 +29,7 @@ interface CartItemProps {
 export function CartItem({ item }: CartItemProps) {
   const dispatch = useAppDispatch();
   const [sizes, setSizes] = useState<ShopProductSize[]>([]);
+  const [productHasSizes, setProductHasSizes] = useState(false);
 
   useEffect(() => {
     let active = true;
@@ -39,13 +40,18 @@ export function CartItem({ item }: CartItemProps) {
         if (!res.ok) return;
         const products = (await res.json()) as Array<{
           id: number;
+          has_sizes?: boolean;
           sizes?: ShopProductSize[];
         }>;
         const product = products.find((entry) => entry.id === item.id);
         if (!active) return;
+        setProductHasSizes(Boolean(product?.has_sizes));
         setSizes((product?.sizes ?? []).filter((size) => size.is_active));
       } catch {
-        if (active) setSizes([]);
+        if (active) {
+          setProductHasSizes(false);
+          setSizes([]);
+        }
       }
     };
 
@@ -56,7 +62,7 @@ export function CartItem({ item }: CartItemProps) {
   }, [item.id]);
 
   const selectedSizeId = item.size_id ? String(item.size_id) : "";
-  const canChangeSize = sizes.length > 0;
+  const canChangeSize = productHasSizes && sizes.length > 0;
 
   const selectedServesLabel = useMemo(() => {
     if (item.serves) return item.serves;

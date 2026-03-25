@@ -27,6 +27,7 @@ import { Separator } from "@/components/ui/separator";
 import { getOrderFromSession } from "@/app/actions/stripe"; // Changed import
 import { useAppDispatch } from "@/store/hooks";
 import { clearCart } from "@/store/cart-slice";
+import { getOrderItemLineParts } from "@/lib/order-item-line";
 
 interface OrderItem {
   name: string;
@@ -323,21 +324,47 @@ function SuccessContent() {
             Order Items
           </h3>
           <div className="mt-3 space-y-2">
-            {order.items.map((item, idx) => (
-              <div
-                key={idx}
-                className="flex items-center justify-between text-sm"
-              >
-                <span className="text-muted-foreground">
-                  {item.quantity}x {item.name}
-                  {item.sizeName ? ` (${item.sizeName})` : ""}
-                  {item.serves ? ` - Serves ${item.serves}` : ""}
-                </span>
-                <span className="font-medium">
-                  ${item.lineTotal.toFixed(2)}
-                </span>
-              </div>
-            ))}
+            {order.items.map((item, idx) => {
+              const parts = getOrderItemLineParts({
+                quantity: item.quantity,
+                productName: item.name,
+                sizeName: item.sizeName,
+                serves: item.serves,
+              });
+
+              return (
+                <div
+                  key={idx}
+                  className="flex items-center justify-between text-sm"
+                >
+                  <div className="flex items-start gap-2">
+                    <span className="font-mono text-muted-foreground">
+                      {parts.quantityText}
+                    </span>
+                    <div>
+                      <p className="font-medium text-foreground">
+                        {parts.productText}
+                      </p>
+                      {(parts.sizeText || parts.servesText) && (
+                        <div className="mt-0.5 flex flex-wrap gap-2 text-xs text-muted-foreground">
+                          {parts.sizeText ? (
+                            <span className="rounded bg-muted px-1.5 py-0.5">
+                              Size: {parts.sizeText}
+                            </span>
+                          ) : null}
+                          {parts.servesText ? (
+                            <span className="rounded bg-muted px-1.5 py-0.5">
+                              Serves: {parts.servesText}
+                            </span>
+                          ) : null}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                  <span className="font-medium">${item.lineTotal.toFixed(2)}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
