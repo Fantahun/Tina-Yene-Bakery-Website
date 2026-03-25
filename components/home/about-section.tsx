@@ -1,31 +1,31 @@
 "use client";
 
-import { Wheat, HandHeart, PartyPopper, Truck } from "lucide-react";
+import { Wheat, HandHeart, PartyPopper, Earth } from "lucide-react";
 
 const features = [
 	{
 		icon: Wheat,
-		title: "Fresh Ingredients",
+		title: "Premium ingredients, always",
 		description:
 			"We use high-quality butter, flour, and fresh ingredients in every recipe.",
 	},
 	{
 		icon: HandHeart,
-		title: "Made with Care",
+		title: "Handcrafted with precision and care",
 		description:
 			"Each cake, cookie, and pastry is thoughtfully prepared from start to finish",
 	},
 	{
-		icon: PartyPopper,
-		title: "For Every Celebration",
+		icon: Earth,
+		title: "Inspired by culture, made for everyone",
 		description:
-			"From everyday treats to special occasions, we are here to make your moments sweeter.",
+			"From everyday treats to special occasions, our products are made for everyone.",
 	},
 	{
-		icon: Truck,
-		title: "Simple & Convenient",
+		icon: PartyPopper,
+		title: "Designed to make every moment special",
 		description:
-			"Easy online ordering with pickup and local delivery available.",
+			"We always try to make your moments sweet and special with our delicious cakes and pastries.",
 	},
 ];
 

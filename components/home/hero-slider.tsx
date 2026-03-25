@@ -16,25 +16,25 @@ import "swiper/css/effect-fade"
 const slides = [
   {
     image: "/images/hero-1.jpg",
-    title: "Fresh Cakes & Pastries Made with Care",
+    title: "European Pastry Craft. Ethiopian Soul",
     subtitle:
-      "From everyday treats to special celebrations, we create beautiful baked goods for every moment.",
+      "From delicate French-style pastries to rich, cultural flavors, every creation at Yene Bakery is handcrafted to bring warmth, elegance, and unforgettable taste to your table.",
     cta: "Explore Our Shop",
     href: "/shop",
   },
   {
     image: "/images/hero-2.jpg",
-    title: "Buttery Perfection",
+    title: "European Pastries",
     subtitle:
-      "Flaky croissants and delicate pastries made with imported European butter",
+      "Flaky, delicate, and crafted with premium butter.",
     cta: "View Pastries",
     href: "/shop?category=cakes-pastries",
   },
   {
     image: "/images/hero-3.jpg",
-    title: "Custom Celebrations",
+    title: "Custom Cakes for Your Special Moments",
     subtitle:
-      "Beautifully crafted cakes designed for your most special moments",
+      "Beautifully crafted cakes designed with care. Made just for you.",
     cta: "Order Custom",
     href: "/shop?category=custom-orders",
   },
