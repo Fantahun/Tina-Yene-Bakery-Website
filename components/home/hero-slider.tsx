@@ -15,7 +15,7 @@ import "swiper/css/effect-fade"
 
 const slides = [
   {
-    image: "/images/hero-1.jpg",
+    image: "/images/banner/slider-1-europe-ethiopia.jpg",
     title: "European Pastry Craft. Ethiopian Soul",
     subtitle:
       "From delicate French-style pastries to rich, cultural flavors, every creation at Yene Bakery is handcrafted to bring warmth, elegance, and unforgettable taste to your table.",
@@ -23,7 +23,7 @@ const slides = [
     href: "/shop",
   },
   {
-    image: "/images/hero-2.jpg",
+    image: "/images/banner/slider-2-european-pastries.jpg",
     title: "European Pastries",
     subtitle:
       "Flaky, delicate, and crafted with premium butter.",
@@ -31,7 +31,7 @@ const slides = [
     href: "/shop?category=cakes-pastries",
   },
   {
-    image: "/images/hero-3.jpg",
+    image: "/images/banner/slider-3-custom-cakes.jpg",
     title: "Custom Cakes for Your Special Moments",
     subtitle:
       "Beautifully crafted cakes designed with care. Made just for you.",
