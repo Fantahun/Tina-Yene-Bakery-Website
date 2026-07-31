@@ -42,11 +42,13 @@ export function revalidateStorefront(slug?: string | null) {
     revalidateTag(`product:${slug}`, IMMEDIATE)
   }
 
-  // Purge the rendered pages too. The data cache is what usually goes stale, but
-  // dropping the route cache as well means a hard refresh always shows the edit.
-  for (const publicPath of Object.values(PUBLIC_PATHS)) {
-    revalidatePath(publicPath)
-  }
+  // Purge only the pages that actually read the database. Revalidating all nine
+  // public paths (about/contact/privacy/terms/... are static content) forced a
+  // re-render of pages that cannot have changed, and because the DB-backed pages
+  // are force-dynamic each purge turns into a fresh render plus new connections
+  // on the next request - a burst of work per admin click, for no benefit.
+  revalidatePath(PUBLIC_PATHS.home)
+  revalidatePath(PUBLIC_PATHS.shop)
   if (slug) {
     revalidatePath(`/shop/${slug}`)
   }

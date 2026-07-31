@@ -432,6 +432,44 @@ if (mapCount > 0) ok(`Removed ${mapCount} source maps`)
 ok(`Trimmed ${(freedBytes / 1024 / 1024).toFixed(1)} MB total`)
 
 // ---------------------------------------------------------------------------
+step("Step 4c: Bounding the Node thread pool")
+
+// Hostinger's "Max Processes" quota counts THREADS, not just processes, and the
+// account cgroup is shared with its supervisor, PHP-FPM and cron. Node's libuv
+// pool defaults to 4 but grows with concurrency, and UV_THREADPOOL_SIZE has to be
+// set before the process starts - it cannot be changed from inside server.js.
+//
+// So the real server is renamed and the entry point becomes a tiny launcher that
+// sets the variable and then imports it. This caps the app's thread footprint
+// instead of letting it expand until the quota is hit and requests start 503ing.
+const realServer = path.join(OUT_DIR, "next-server-entry.js")
+const entryServer = path.join(OUT_DIR, "server.js")
+
+if (fs.existsSync(entryServer) && !fs.existsSync(realServer)) {
+  fs.renameSync(entryServer, realServer)
+  fs.writeFileSync(
+    entryServer,
+    `// Launcher: bounds the libuv thread pool before the Next.js server loads.
+// UV_THREADPOOL_SIZE is read once at process start, so it cannot be set inside
+// the server itself. Keep this file as the configured entry point.
+//
+// Tune with UV_THREADPOOL_SIZE in Hostinger's environment panel if needed; the
+// default below is deliberately small for a shared host with a 120-process quota.
+process.env.UV_THREADPOOL_SIZE ||= "4"
+
+// Next reads this to size its own worker pools; 1 is right for a 2-core plan
+// where every extra worker is another slice of the same quota.
+process.env.NEXT_CPU_COUNT ||= "1"
+
+await import("./next-server-entry.js")
+`,
+  )
+  ok("server.js now bounds UV_THREADPOOL_SIZE before starting Next")
+} else {
+  warn("Entry launcher already present or server.js missing; left as-is")
+}
+
+// ---------------------------------------------------------------------------
 step("Step 5: Adding runtime helpers")
 
 // Hostinger runs `npm install` on the uploaded files even when the build command
