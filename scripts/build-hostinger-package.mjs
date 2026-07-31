@@ -31,17 +31,6 @@ const BUILD_STAMP = (() => {
 const ZIP_NAME = `tina-bakery-hostinger-${BUILD_STAMP}.zip`
 const ZIP_PATH = path.join(ROOT, ZIP_NAME)
 
-// The Linux engine the Hostinger host loads at runtime. Must match a target in
-// the `binaryTargets` list in prisma/schema.prisma.
-// Hostinger reported "debian-openssl-1.1.x" at runtime, and the OpenSSL version
-// on shared hosting can change without notice. Ship every Linux engine listed in
-// prisma/schema.prisma's binaryTargets so the correct one is always present.
-const LINUX_ENGINES = [
-  "libquery_engine-debian-openssl-3.0.x.so.node",
-  "libquery_engine-debian-openssl-1.1.x.so.node",
-]
-const LINUX_ENGINE = LINUX_ENGINES[0]
-
 const skipBuild = process.argv.includes("--skip-build")
 
 const log = (msg) => console.log(msg)
@@ -98,14 +87,20 @@ if (!/output\s*:\s*["']standalone["']/.test(nextConfig)) {
 }
 ok("next.config.mjs uses standalone output")
 
+// Prisma 7 compiles queries in JavaScript and connects through a driver adapter,
+// so there is no engine binary to ship and no binaryTargets to get wrong. Guard
+// against a regression that would quietly reintroduce the native engine.
 const schema = fs.readFileSync(path.join(ROOT, "prisma", "schema.prisma"), "utf8")
-if (!schema.includes("debian-openssl-3.0.x")) {
+// Match an actual assignment, not the word in a comment explaining its absence.
+if (/^\s*binaryTargets\s*=/m.test(schema)) {
   fail(
-    "prisma/schema.prisma must list a Linux binaryTarget (debian-openssl-3.0.x).\n" +
-      "Without it the Windows-only engine ships and the server cannot start.",
+    "prisma/schema.prisma sets binaryTargets, which means the Rust query engine\n" +
+      "is back. That engine spawns a Tokio runtime and cannot reliably get a\n" +
+      "thread inside Hostinger's 120-process cgroup - the failure is\n" +
+      '"PANIC: timer has gone away" on every query. Keep the driver adapter.',
   )
 }
-ok("prisma schema targets the Linux query engine")
+ok("prisma schema is engine-free (driver adapter)")
 
 // ---------------------------------------------------------------------------
 step("Step 2: Build")
@@ -177,8 +172,18 @@ step("Step 3b: Restoring packages the tracer left out of node_modules root")
 // Resolve each required package from the real node_modules and materialise it.
 const outNodeModules = path.join(OUT_DIR, "node_modules")
 
-// Packages Next's require-hook resolves eagerly at startup.
-const REQUIRED_AT_ROOT = ["styled-jsx", "client-only", "server-only", "scheduler"]
+// Packages Next's require-hook resolves eagerly at startup, plus the Prisma
+// driver adapter and its mariadb driver: Turbopack inlines those into the server
+// chunks, so the tracer never emits them as packages and npm then prunes them.
+// Without them the client has no transport and every query fails.
+const REQUIRED_AT_ROOT = [
+  "styled-jsx",
+  "client-only",
+  "server-only",
+  "scheduler",
+  "@prisma/adapter-mariadb",
+  "mariadb",
+]
 
 for (const pkg of REQUIRED_AT_ROOT) {
   const target = path.join(outNodeModules, ...pkg.split("/"))
@@ -193,6 +198,14 @@ for (const pkg of REQUIRED_AT_ROOT) {
     if (entry) sourceDir = path.dirname(entry)
   } catch {
     // Fall through to a manual search of the pnpm store below.
+  }
+
+  if (!sourceDir) {
+    // import.meta.resolve fails for packages that do not export "./package.json"
+    // - @prisma/adapter-mariadb is one. Look it up on disk in the project's own
+    // node_modules, which is where it actually lives.
+    const direct = path.join(ROOT, "node_modules", ...pkg.split("/"))
+    if (fs.existsSync(path.join(direct, "package.json"))) sourceDir = direct
   }
 
   if (!sourceDir) {
@@ -223,148 +236,16 @@ for (const pkg of REQUIRED_AT_ROOT) {
 }
 
 // ---------------------------------------------------------------------------
-step("Step 4: Ensuring the Linux Prisma engine is present")
+step("Step 4: Prisma client")
 
-// Next's dependency tracer copies the Prisma client but routinely misses the
-// native engine binary, which is loaded at runtime rather than imported. A
-// package missing this starts and then fails on the first query - verify it
-// explicitly rather than discovering it in production.
-const clientDirs = []
-const collectClientDirs = (base) => {
-  const p = path.join(base, "node_modules", ".prisma", "client")
-  if (fs.existsSync(p)) clientDirs.push(p)
-}
-collectClientDirs(OUT_DIR)
-
-for (const engineName of LINUX_ENGINES) {
-  let engineInPackage = findFile(path.join(OUT_DIR, "node_modules"), engineName)
-
-  if (!engineInPackage) {
-    const sourceEngine = findFile(path.join(ROOT, "node_modules"), engineName)
-    if (!sourceEngine) {
-      fail(
-        `Could not find ${engineName} locally.\n` +
-          "Run `npx prisma generate` so every binaryTarget in prisma/schema.prisma\n" +
-          "is downloaded, then rebuild.",
-      )
-    }
-    const targetDir =
-      clientDirs[0] ?? path.join(OUT_DIR, "node_modules", ".prisma", "client")
-    fs.mkdirSync(targetDir, { recursive: true })
-    fs.copyFileSync(sourceEngine, path.join(targetDir, engineName))
-    engineInPackage = path.join(targetDir, engineName)
-  }
-
-  const engineSizeMb = (fs.statSync(engineInPackage).size / 1024 / 1024).toFixed(1)
-  ok(`${engineName} present (${engineSizeMb} MB)`)
-}
-
-// The generated client reads schema.prisma from its own directory at runtime.
-for (const dir of clientDirs) {
-  const target = path.join(dir, "schema.prisma")
-  if (!fs.existsSync(target)) {
-    fs.copyFileSync(path.join(ROOT, "prisma", "schema.prisma"), target)
-    ok("Restored schema.prisma next to the generated client")
-  }
-}
-
-// Turbopack copies @prisma/client into .next/node_modules under a hashed name
-// (@prisma/client-<hash>). That copy's default.js does `require('.prisma/client/default')`,
-// resolved relative to itself - and its nested node_modules holds only .bin.
-// Locally Node walks up to the root node_modules/.prisma and it works; on the
-// server that lookup fails with "Cannot find module '.prisma/client/default'".
-// Place the generated client inside each hashed copy so resolution succeeds
-// without depending on directory-walk luck.
-const turbopackModulesDir = path.join(OUT_DIR, ".next", "node_modules", "@prisma")
-if (fs.existsSync(turbopackModulesDir)) {
-  const generatedClientDir = path.join(OUT_DIR, "node_modules", ".prisma", "client")
-  if (!fs.existsSync(generatedClientDir)) {
-    fail("No generated Prisma client available to satisfy the Turbopack copy.")
-  }
-
-  for (const hashedName of fs.readdirSync(turbopackModulesDir)) {
-    const copyDir = path.join(turbopackModulesDir, hashedName)
-
-    // Two earlier approaches failed on the server: a nested node_modules/.prisma
-    // (npm prunes anything under .next/) and a relative path up to the root
-    // node_modules/.prisma (the target is not reliably present after Hostinger's
-    // install, even though it ships in the ZIP).
-    //
-    // Place the generated client *inside* the Turbopack copy as a sibling
-    // directory and point the entry files at it. The require target is then a
-    // relative path that never leaves this directory, so nothing outside it -
-    // npm, the extractor, or Node's resolution order - can invalidate it.
-    const inlinedClient = path.join(copyDir, "prisma-client")
-    if (!fs.existsSync(path.join(inlinedClient, "default.js"))) {
-      fs.cpSync(generatedClientDir, inlinedClient, { recursive: true, dereference: true })
-      ok(`Inlined the generated client into ${hashedName}/prisma-client`)
-    }
-
-    // The generated client also requires '@prisma/client/runtime/library.js' -
-    // another bare specifier that resolves upward and finds nothing on the
-    // server. The runtime already ships one level up inside this same Turbopack
-    // copy, so point at it relatively and the client stops depending on any
-    // package outside its own directory.
-    for (const entry of fs.readdirSync(inlinedClient)) {
-      if (!entry.endsWith(".js")) continue
-      const filePath = path.join(inlinedClient, entry)
-      const source = fs.readFileSync(filePath, "utf8")
-      if (!source.includes("@prisma/client/runtime/")) continue
-
-      const rewritten = source.replace(
-        /(['"])@prisma\/client\/runtime\/([\w.-]+)\1/g,
-        (_match, quote, runtimeFile) => `${quote}../runtime/${runtimeFile}${quote}`,
-      )
-
-      if (rewritten !== source) {
-        fs.writeFileSync(filePath, rewritten)
-        ok(`Rewrote ${hashedName}/prisma-client/${entry} to the local runtime`)
-      }
-    }
-
-    for (const file of ["default.js", "index.js", "edge.js", "wasm.js"]) {
-      const filePath = path.join(copyDir, file)
-      if (!fs.existsSync(filePath)) continue
-
-      const source = fs.readFileSync(filePath, "utf8")
-      if (!source.includes(".prisma/client")) continue
-
-      const rewritten = source.replace(
-        /(['"])\.prisma\/client\/([\w-]+)\1/g,
-        (_match, quote, entry) => `${quote}./prisma-client/${entry}${quote}`,
-      )
-
-      if (rewritten !== source) {
-        fs.writeFileSync(filePath, rewritten)
-        ok(`Rewrote ${hashedName}/${file} to the inlined client`)
-      }
-    }
-  }
-}
-
-// Keep the Windows engine alongside the Linux one by default. Prisma loads only
-// the engine matching the current platform, so carrying both is harmless on the
-// server and lets you run the exact deployment package locally before uploading.
-// Pass --linux-only to strip it and save ~15 MB when you want a minimal upload.
-if (process.argv.includes("--linux-only")) {
-  const windowsEngine = findFile(
-    path.join(OUT_DIR, "node_modules"),
-    "query_engine-windows.dll.node",
-  )
-  if (windowsEngine) {
-    fs.rmSync(windowsEngine)
-    ok("Removed the Windows engine (--linux-only)")
-  }
-} else {
-  const windowsEngine = findFile(
-    path.join(OUT_DIR, "node_modules"),
-    "query_engine-windows.dll.node",
-  )
-  if (windowsEngine) {
-    ok("Kept the Windows engine so the package runs locally too (--linux-only to strip)")
-  }
-}
-
+// Nothing to verify here any more. Prisma 7 ships no engine binary: the client
+// is plain JavaScript and the connection comes from the driver adapter in
+// lib/prisma.ts. The ~140 lines removed here existed to copy the Linux .so into
+// every location Prisma might search, rewrite the bare specifiers inside
+// Turbopack's hashed @prisma/client copy, and prove the result still resolved
+// with the root node_modules hidden - all of which only mattered because of the
+// native engine.
+ok("Prisma 7 client needs no engine binary")
 // ---------------------------------------------------------------------------
 step("Step 4b: Trimming build-only and wrong-platform files")
 
@@ -488,13 +369,12 @@ function readBundledDependencies() {
     }
   }
 
-  // @prisma/client must NOT be declared. Declaring it makes npm reinstall a
-  // pristine copy from the registry and run its postinstall, which regenerates
-  // an unconfigured stub over the client generated at build time - the server
-  // then throws "@prisma/client did not initialize yet" on the first query.
-  // Leaving it undeclared keeps npm away from it; the bundled copy (and the
-  // Linux engine beside it in node_modules/.prisma) is used as-is.
-  delete deps["@prisma/client"]
+  // @prisma/client IS declared now. Under Prisma 5 it had to be left out, because
+  // declaring it made npm reinstall a pristine copy and run a postinstall that
+  // regenerated an unconfigured stub over the build-time client and its engine.
+  // Prisma 7 generates plain JavaScript with no engine and no such postinstall,
+  // so declaring it is both safe and necessary - undeclared, npm prunes it as
+  // extraneous and the server starts with no database layer at all.
 
   return deps
 }
@@ -645,13 +525,10 @@ await (async () => {
   }
   ok(`Server booted and served /terms (HTTP ${status})`)
 
-  // If the Windows engine is still in the package and a database is reachable,
-  // exercise a real query too. This is the check that would have caught a missing
-  // or mismatched Prisma engine, which a static page alone cannot detect.
-  const hasWindowsEngine = Boolean(
-    findFile(path.join(OUT_DIR, "node_modules"), "query_engine-windows.dll.node"),
-  )
-  if (hasWindowsEngine) {
+  // Exercise a real query too - a static page renders fine while the database
+  // layer is broken. The client is pure JavaScript now, so this runs on any
+  // platform rather than only where a matching engine binary exists.
+  {
     try {
       const res = await fetch(`http://127.0.0.1:${PORT}/api/categories`)
       const body = await res.text()
@@ -664,8 +541,6 @@ await (async () => {
     } catch (err) {
       warn(`Could not reach /api/categories: ${err instanceof Error ? err.message : err}`)
     }
-  } else {
-    warn("Windows engine stripped (--linux-only): skipping the database check")
   }
 
   child.kill()
@@ -790,19 +665,21 @@ await (async () => {
   }
   ok("node_modules survived npm install")
 
-  // The generated Prisma client is the fragile part: reinstalling @prisma/client
-  // replaces it with a stub whose constructor throws "did not initialize yet".
-  // Check the generated artifacts specifically, not just that a directory exists.
-  const generatedClient = path.join(extractDir, "node_modules", ".prisma", "client")
-  if (!fs.existsSync(path.join(generatedClient, "index.js"))) {
-    fail("npm install destroyed the generated Prisma client (node_modules/.prisma/client).")
+  // The generated Prisma client is still the fragile part: reinstalling
+  // @prisma/client replaces it with a stub whose constructor throws. There are no
+  // engine binaries to check any more, but the generated code still has to be there.
+  const generatedClient = path.join(extractDir, "node_modules", "@prisma", "client")
+  if (!fs.existsSync(path.join(generatedClient, "package.json"))) {
+    fail("npm install removed @prisma/client from the package.")
   }
-  for (const engineName of LINUX_ENGINES) {
-    if (!fs.existsSync(path.join(generatedClient, engineName))) {
-      fail(`npm install removed the Linux query engine (${engineName}).`)
-    }
+  const adapterDir = path.join(extractDir, "node_modules", "@prisma", "adapter-mariadb")
+  if (!fs.existsSync(path.join(adapterDir, "package.json"))) {
+    fail(
+      "npm install removed @prisma/adapter-mariadb.\n" +
+        "Without the driver adapter the client has no way to reach the database.",
+    )
   }
-  ok("Generated Prisma client and both Linux engines survived npm install")
+  ok("Prisma client and MariaDB driver adapter survived npm install")
 
   // Defined before the checks below so any of them can tear down cleanly. The
   // server process started further down is killed here too once it exists.
@@ -822,79 +699,11 @@ await (async () => {
     }
   }
 
-  // Resolve exactly the way the server does: from inside the Turbopack copy at
-  // .next/node_modules/@prisma/client-<hash>. Booting the app locally does not
-  // prove this, because Node's directory walk finds the root node_modules/.prisma
-  // and silently succeeds where the server fails.
-  const turboPrismaDir = path.join(extractDir, ".next", "node_modules", "@prisma")
-  if (fs.existsSync(turboPrismaDir)) {
-    for (const hashedName of fs.readdirSync(turboPrismaDir)) {
-      const from = path.join(turboPrismaDir, hashedName, "default.js")
-      if (!fs.existsSync(from)) continue
-      try {
-        // Actually require the module rather than only resolving it: this runs
-        // the same code path the server does and surfaces a broken client, not
-        // just a missing file. Pass the path as a POSIX-style specifier so
-        // Windows backslashes are not read as escapes inside `node -e`.
-        const specifier = from.split(path.sep).join("/")
-        execSync(`node -e "require('${specifier}')"`, {
-          stdio: "pipe",
-          cwd: extractDir,
-        })
-        ok(`@prisma/${hashedName} loads the generated client`)
-
-        // Prove the copy is self-contained. Every previous fix passed locally
-        // because Node found the root node_modules/.prisma; on the server that
-        // path was gone. Temporarily hide it and require again - if this still
-        // works, the copy cannot be broken by anything outside its own directory.
-        // Hide BOTH node_modules/.prisma and node_modules/@prisma. Hiding only
-        // the former still let the copy resolve '@prisma/client/runtime/library.js'
-        // upward, so the previous build passed here and failed on the server.
-        const hiddenDirs = [
-          path.join(extractDir, "node_modules", ".prisma"),
-          path.join(extractDir, "node_modules", "@prisma"),
-        ]
-        const restore = []
-        try {
-          for (const dir of hiddenDirs) {
-            if (!fs.existsSync(dir)) continue
-            const hidden = `${dir}__hidden`
-            fs.renameSync(dir, hidden)
-            restore.push([hidden, dir])
-          }
-          execSync(`node -e "require('${specifier}')"`, {
-            stdio: "pipe",
-            cwd: extractDir,
-          })
-          ok(`@prisma/${hashedName} is self-contained (no external @prisma needed)`)
-        } catch (isolationErr) {
-          const detail = isolationErr?.stderr?.toString().slice(0, 600) ?? ""
-          for (const [hidden, original] of restore) {
-            if (fs.existsSync(hidden)) fs.renameSync(hidden, original)
-          }
-          await cleanup()
-          fail(
-            `@prisma/${hashedName} still depends on a package outside its own directory.\n` +
-              "Those paths are not reliably present on Hostinger, which is why the\n" +
-              "deployed server reports 'Cannot find module'.\n\n" +
-              detail,
-          )
-        } finally {
-          for (const [hidden, original] of restore) {
-            if (fs.existsSync(hidden)) fs.renameSync(hidden, original)
-          }
-        }
-      } catch (err) {
-        const detail = err?.stderr?.toString().slice(0, 600) ?? String(err)
-        await cleanup()
-        fail(
-          `@prisma/${hashedName} cannot load the generated Prisma client.\n` +
-            "This is the 'Failed to load external module' error on Hostinger.\n\n" +
-            detail,
-        )
-      }
-    }
-  }
+  // The Turbopack @prisma resolution checks that used to live here are gone.
+  // They verified that .next/node_modules/@prisma/client-<hash> could reach the
+  // native engine - including with the root node_modules hidden - which only
+  // mattered while an engine binary existed. Prisma 7 resolves as ordinary
+  // JavaScript, so the database check further down covers it.
 
   const PORT = 3989
   const testEnv = { ...process.env }
@@ -973,7 +782,11 @@ await (async () => {
 
   // A static page proves the server runs; only a query proves Prisma survived
   // the install. This is the check that the "Internal Server Error" needed.
-  if (fs.existsSync(path.join(generatedClient, "query_engine-windows.dll.node"))) {
+  //
+  // This used to be gated on a Windows engine binary being present, which now
+  // never is - the check silently stopped running at exactly the moment it
+  // mattered most. The JavaScript client works on any platform, so always run it.
+  {
     let dbStatus = 0
     let dbBody = ""
     try {
@@ -994,8 +807,6 @@ await (async () => {
       )
     }
     ok(`Database route works after npm install (HTTP ${dbStatus})`)
-  } else {
-    warn("Windows engine stripped; skipping the post-install database check")
   }
 
   await cleanup()

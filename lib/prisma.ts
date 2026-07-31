@@ -1,21 +1,55 @@
 import { PrismaClient } from "@prisma/client"
+import { PrismaMariaDb } from "@prisma/adapter-mariadb"
 
-// The Prisma client MUST be cached on globalThis in every environment, including
-// production. Each `new PrismaClient()` spawns a separate native query-engine
-// process that holds its own connection pool, so a client leaked per module
-// context shows up directly in Hostinger's "Max Processes" quota and can exhaust
-// the database connection ceiling (which manifests as API calls hanging rather
-// than erroring). The common `NODE_ENV !== "production"` guard only protects
-// against dev hot-reload leaks and is wrong for a long-lived self-hosted server.
-const globalForPrisma = globalThis as unknown as {
-  prisma?: PrismaClient
-  prismaConnect?: Promise<void>
-}
+// Prisma 7 has no Rust query engine. Queries are compiled in JavaScript and run
+// through a driver adapter - here node-mariadb, which is the recommended driver
+// for MySQL.
+//
+// This replaced Prisma 5, whose native engine spawned a Tokio runtime with its
+// own thread pool. On Hostinger's shared plan the account cgroup caps *threads*
+// at 120, shared with PHP-FPM, cron and the panel's supervisor. When the engine
+// could not get a thread it aborted with "PANIC: timer has gone away" - an
+// unrecoverable crash that left every subsequent query failing until the process
+// restarted. The same panic is reported by others on Hostinger with the same
+// 120-process limit on much newer Prisma 6.x, so it was never a version bug: the
+// Rust engine simply cannot run reliably in that budget.
+//
+// Without an engine there is no engine process, no Tokio timer thread, and no
+// platform-specific binary - which also retires the OpenSSL 1.1.x/3.0.x
+// binaryTargets problem that broke several earlier deployments.
+const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient }
 
-const client =
-  globalForPrisma.prisma ??
-  new PrismaClient({
-    datasourceUrl: process.env.DATA_BASE_URL,
+function createClient() {
+  const url = process.env.DATA_BASE_URL
+  if (!url) {
+    throw new Error(
+      "DATA_BASE_URL is not set. On Hostinger set it in the environment panel.",
+    )
+  }
+
+  // connectionLimit is the pool size. Kept small deliberately: queries against a
+  // database on localhost return in single-digit milliseconds, so a large pool
+  // buys nothing and every extra connection is another socket and another slice
+  // of a quota that is already tight.
+  const parsed = new URL(url)
+  const connectionLimit = Number(parsed.searchParams.get("connection_limit")) || 5
+
+  const adapter = new PrismaMariaDb({
+    host: parsed.hostname,
+    port: Number(parsed.port) || 3306,
+    user: decodeURIComponent(parsed.username),
+    password: decodeURIComponent(parsed.password),
+    database: parsed.pathname.replace(/^\//, ""),
+    connectionLimit,
+    // Fail fast rather than holding a request open when the pool is exhausted or
+    // the database is unreachable; a hung request pins resources far longer than
+    // an error does.
+    connectTimeout: 10_000,
+    acquireTimeout: 10_000,
+  })
+
+  return new PrismaClient({
+    adapter,
     // Query logging on every request is pure overhead in production and keeps
     // stdout busy; keep errors and warnings only.
     log:
@@ -23,47 +57,19 @@ const client =
         ? ["error", "warn"]
         : ["error", "warn", "query"],
   })
-
-globalForPrisma.prisma = client
-
-// Connect once, and make every query wait for that single shared promise.
-//
-// Without this the engine starts lazily on whichever query runs first. The pages
-// here open with `Promise.all([...])`, so on a cold start several queries reach
-// the engine while it is still initialising - the debug log shows "library
-// already starting, this.libraryStarted: false" repeatedly - and the Rust engine
-// crashes with `PANIC: timer has gone away`. That crash is unrecoverable: the
-// client stays dead until the process restarts, which is why the site returned
-// 500s continuously rather than just on the first request.
-function connectOnce(): Promise<void> {
-  if (globalForPrisma.prismaConnect) return globalForPrisma.prismaConnect
-
-  const promise = client.$connect().catch((error: unknown) => {
-    // Never cache a rejected promise: a transient failure at boot (database not
-    // up yet) would otherwise poison every later request until a restart.
-    globalForPrisma.prismaConnect = undefined
-    throw error
-  })
-
-  globalForPrisma.prismaConnect = promise
-  return promise
 }
 
-// Applied as a client extension rather than by calling prismaReady() in each
-// route, so **queries added later are protected without anyone remembering**.
-// The await is a no-op once connected, so this costs nothing at steady state.
-export const prisma = client.$extends({
-  query: {
-    async $allOperations({ args, query }) {
-      await connectOnce()
-      return query(args)
-    },
-  },
-}) as unknown as PrismaClient
+// Cache on globalThis in every environment, production included. Each client
+// owns a connection pool, so one per module context would multiply connections
+// and sockets. The usual `NODE_ENV !== "production"` guard only protects against
+// dev hot-reload leaks and is wrong for a long-lived self-hosted server.
+export const prisma = globalForPrisma.prisma ?? createClient()
+
+globalForPrisma.prisma = prisma
 
 /**
- * Explicitly wait for the engine to be ready. Rarely needed - the extension
- * above already gates every query - but useful before a `Promise.all` if you
- * want the connection cost paid once, visibly, rather than inside the first query.
+ * Kept for call sites that want to pay connection setup explicitly before a
+ * `Promise.all`. With the JS driver there is no engine to race, so this is a
+ * no-op safeguard rather than a requirement.
  */
-export const prismaReady = connectOnce
+export const prismaReady = async () => {}

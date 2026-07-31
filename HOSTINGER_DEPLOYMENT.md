@@ -452,16 +452,27 @@ issue: check that the route's mutating handlers are exported through
 `withCacheInvalidation`.
 
 **`PANIC: timer has gone away` / `PrismaClientRustPanicError`**
-The Rust query engine crashed because concurrent queries reached it while it was
-still initialising - the debug log shows `library already starting,
-this.libraryStarted: false` repeated. The crash is unrecoverable: the client
-stays dead until the process restarts, so the site returns 500s continuously
-rather than only on the first request.
+This should be impossible now - it was the reason for moving to Prisma 7.
 
-`lib/prisma.ts` prevents this with a client extension that awaits a single shared
-`$connect()` before any query runs. If you see this again, check that the extended
-client is still the one being exported - a plain `new PrismaClient()` used
-directly anywhere bypasses the guard.
+Prisma 5 and 6 run queries through a native Rust engine that starts its own Tokio
+runtime with a thread pool. Hostinger's shared plan caps **threads** at 120 across
+the whole account cgroup, shared with PHP-FPM, cron and the panel's supervisor.
+When the engine could not get a thread it aborted with this panic - and the crash
+is unrecoverable, so every later query failed until the process restarted. That is
+why the site returned 500s continuously rather than intermittently.
+
+It is not a version bug: the same panic is reported on Hostinger with the same
+120-process limit on Prisma 6.19
+([prisma#29336](https://github.com/prisma/prisma/issues/29336)), and on Debian
+generally ([prisma#25884](https://github.com/prisma/prisma/issues/25884)).
+
+Prisma 7 has **no engine**: queries are compiled in JavaScript and run through the
+`@prisma/adapter-mariadb` driver. No engine means no Tokio runtime and no thread to
+fail to allocate.
+
+If this ever reappears, something has reintroduced the native engine. Check that
+`prisma/schema.prisma` has no `binaryTargets` (the build fails if it does) and that
+`lib/prisma.ts` still passes an `adapter` to `PrismaClient`.
 
 **App won't start / 503**
 Check the Node app logs in hPanel. Most common cause is `.env` missing or
