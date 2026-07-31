@@ -352,9 +352,24 @@ visitor — you keep near-ISR performance with a database-independent build.
 `generateStaticParams` was removed from `/shop/[slug]` for the same reason:
 enumerating slugs required a build-time database connection.
 
-Cache tags (`products`, `categories`, `home-data`, `shop-data`, `product:<slug>`)
-are wired so `/api/revalidate` can purge content immediately after an admin edit
-rather than waiting out the 24 h window.
+### Cache invalidation
+
+Every admin mutation purges the storefront caches automatically. Handlers are
+wrapped centrally by `withCacheInvalidation` in `lib/cache-invalidation.ts`, so
+**admin endpoints added in future are covered without anyone wiring them up** -
+per-route calls were the alternative and they rot silently, surfacing only as
+"my edit did not appear".
+
+The wrapper purges on any successful `POST`/`PUT`/`PATCH`/`DELETE`. Reads and
+failed writes (401/500) leave the cache alone, since nothing changed.
+
+`NEXT_PUBLIC_ISR_REVALIDATE_SECONDS` sets the upper bound on cache freshness and
+can be changed from Hostinger's environment panel without rebuilding. It only
+matters for writes that bypass the admin API (direct SQL, for example) - admin
+edits appear immediately regardless.
+
+When you add a **new cached query**, add its tag to `ALL_STOREFRONT_TAGS` in
+`lib/cache-invalidation.ts` so it gets purged too.
 
 ---
 

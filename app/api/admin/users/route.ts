@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import bcrypt from "bcryptjs"
 
 import { prisma } from "@/lib/prisma"
+import { withCacheInvalidation } from "@/lib/cache-invalidation";
 
 function unauthorized() {
   return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -15,7 +16,7 @@ function basicAuthValid(req: Request) {
   return user === process.env.ADMIN_USERNAME && pass === process.env.ADMIN_PASSWORD
 }
 
-export async function POST(req: Request) {
+async function POSTHandler(req: Request) {
   if (!basicAuthValid(req)) return unauthorized()
 
   const body = await req.json().catch(() => null)
@@ -51,3 +52,5 @@ export async function POST(req: Request) {
   return NextResponse.json({ id: user.id, username: user.username, role: user.role }, { status: 201 })
 }
 
+// Wrapped centrally so every mutation purges the storefront caches.
+export const POST = withCacheInvalidation(POSTHandler);

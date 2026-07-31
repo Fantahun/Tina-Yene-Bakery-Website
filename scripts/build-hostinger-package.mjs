@@ -18,12 +18,29 @@ import { writeZip } from "./lib/zip-writer.mjs"
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const OUT_DIR = path.join(ROOT, "dist-hostinger")
-const ZIP_NAME = "tina-bakery-hostinger.zip"
+// Timestamped so successive builds do not overwrite each other and the artifact
+// uploaded to Hostinger can be traced back to when it was produced.
+const BUILD_STAMP = (() => {
+  const now = new Date()
+  const pad = (n) => String(n).padStart(2, "0")
+  return (
+    `${pad(now.getDate())}-${pad(now.getMonth() + 1)}-${now.getFullYear()}` +
+    `-${pad(now.getHours())}_${pad(now.getMinutes())}`
+  )
+})()
+const ZIP_NAME = `tina-bakery-hostinger-${BUILD_STAMP}.zip`
 const ZIP_PATH = path.join(ROOT, ZIP_NAME)
 
 // The Linux engine the Hostinger host loads at runtime. Must match a target in
 // the `binaryTargets` list in prisma/schema.prisma.
-const LINUX_ENGINE = "libquery_engine-debian-openssl-3.0.x.so.node"
+// Hostinger reported "debian-openssl-1.1.x" at runtime, and the OpenSSL version
+// on shared hosting can change without notice. Ship every Linux engine listed in
+// prisma/schema.prisma's binaryTargets so the correct one is always present.
+const LINUX_ENGINES = [
+  "libquery_engine-debian-openssl-3.0.x.so.node",
+  "libquery_engine-debian-openssl-1.1.x.so.node",
+]
+const LINUX_ENGINE = LINUX_ENGINES[0]
 
 const skipBuild = process.argv.includes("--skip-build")
 
@@ -219,26 +236,28 @@ const collectClientDirs = (base) => {
 }
 collectClientDirs(OUT_DIR)
 
-let engineInPackage = findFile(path.join(OUT_DIR, "node_modules"), LINUX_ENGINE)
+for (const engineName of LINUX_ENGINES) {
+  let engineInPackage = findFile(path.join(OUT_DIR, "node_modules"), engineName)
 
-if (!engineInPackage) {
-  warn("Linux engine not traced into the package; copying it manually")
-  const sourceEngine = findFile(path.join(ROOT, "node_modules"), LINUX_ENGINE)
-  if (!sourceEngine) {
-    fail(
-      `Could not find ${LINUX_ENGINE} locally.\n` +
-        "Run `npx prisma generate` first so the Linux engine is downloaded.",
-    )
+  if (!engineInPackage) {
+    const sourceEngine = findFile(path.join(ROOT, "node_modules"), engineName)
+    if (!sourceEngine) {
+      fail(
+        `Could not find ${engineName} locally.\n` +
+          "Run `npx prisma generate` so every binaryTarget in prisma/schema.prisma\n" +
+          "is downloaded, then rebuild.",
+      )
+    }
+    const targetDir =
+      clientDirs[0] ?? path.join(OUT_DIR, "node_modules", ".prisma", "client")
+    fs.mkdirSync(targetDir, { recursive: true })
+    fs.copyFileSync(sourceEngine, path.join(targetDir, engineName))
+    engineInPackage = path.join(targetDir, engineName)
   }
-  const targetDir =
-    clientDirs[0] ?? path.join(OUT_DIR, "node_modules", ".prisma", "client")
-  fs.mkdirSync(targetDir, { recursive: true })
-  fs.copyFileSync(sourceEngine, path.join(targetDir, LINUX_ENGINE))
-  engineInPackage = path.join(targetDir, LINUX_ENGINE)
-}
 
-const engineSizeMb = (fs.statSync(engineInPackage).size / 1024 / 1024).toFixed(1)
-ok(`Linux engine present (${engineSizeMb} MB)`)
+  const engineSizeMb = (fs.statSync(engineInPackage).size / 1024 / 1024).toFixed(1)
+  ok(`${engineName} present (${engineSizeMb} MB)`)
+}
 
 // The generated client reads schema.prisma from its own directory at runtime.
 for (const dir of clientDirs) {
@@ -246,6 +265,80 @@ for (const dir of clientDirs) {
   if (!fs.existsSync(target)) {
     fs.copyFileSync(path.join(ROOT, "prisma", "schema.prisma"), target)
     ok("Restored schema.prisma next to the generated client")
+  }
+}
+
+// Turbopack copies @prisma/client into .next/node_modules under a hashed name
+// (@prisma/client-<hash>). That copy's default.js does `require('.prisma/client/default')`,
+// resolved relative to itself - and its nested node_modules holds only .bin.
+// Locally Node walks up to the root node_modules/.prisma and it works; on the
+// server that lookup fails with "Cannot find module '.prisma/client/default'".
+// Place the generated client inside each hashed copy so resolution succeeds
+// without depending on directory-walk luck.
+const turbopackModulesDir = path.join(OUT_DIR, ".next", "node_modules", "@prisma")
+if (fs.existsSync(turbopackModulesDir)) {
+  const generatedClientDir = path.join(OUT_DIR, "node_modules", ".prisma", "client")
+  if (!fs.existsSync(generatedClientDir)) {
+    fail("No generated Prisma client available to satisfy the Turbopack copy.")
+  }
+
+  for (const hashedName of fs.readdirSync(turbopackModulesDir)) {
+    const copyDir = path.join(turbopackModulesDir, hashedName)
+
+    // Two earlier approaches failed on the server: a nested node_modules/.prisma
+    // (npm prunes anything under .next/) and a relative path up to the root
+    // node_modules/.prisma (the target is not reliably present after Hostinger's
+    // install, even though it ships in the ZIP).
+    //
+    // Place the generated client *inside* the Turbopack copy as a sibling
+    // directory and point the entry files at it. The require target is then a
+    // relative path that never leaves this directory, so nothing outside it -
+    // npm, the extractor, or Node's resolution order - can invalidate it.
+    const inlinedClient = path.join(copyDir, "prisma-client")
+    if (!fs.existsSync(path.join(inlinedClient, "default.js"))) {
+      fs.cpSync(generatedClientDir, inlinedClient, { recursive: true, dereference: true })
+      ok(`Inlined the generated client into ${hashedName}/prisma-client`)
+    }
+
+    // The generated client also requires '@prisma/client/runtime/library.js' -
+    // another bare specifier that resolves upward and finds nothing on the
+    // server. The runtime already ships one level up inside this same Turbopack
+    // copy, so point at it relatively and the client stops depending on any
+    // package outside its own directory.
+    for (const entry of fs.readdirSync(inlinedClient)) {
+      if (!entry.endsWith(".js")) continue
+      const filePath = path.join(inlinedClient, entry)
+      const source = fs.readFileSync(filePath, "utf8")
+      if (!source.includes("@prisma/client/runtime/")) continue
+
+      const rewritten = source.replace(
+        /(['"])@prisma\/client\/runtime\/([\w.-]+)\1/g,
+        (_match, quote, runtimeFile) => `${quote}../runtime/${runtimeFile}${quote}`,
+      )
+
+      if (rewritten !== source) {
+        fs.writeFileSync(filePath, rewritten)
+        ok(`Rewrote ${hashedName}/prisma-client/${entry} to the local runtime`)
+      }
+    }
+
+    for (const file of ["default.js", "index.js", "edge.js", "wasm.js"]) {
+      const filePath = path.join(copyDir, file)
+      if (!fs.existsSync(filePath)) continue
+
+      const source = fs.readFileSync(filePath, "utf8")
+      if (!source.includes(".prisma/client")) continue
+
+      const rewritten = source.replace(
+        /(['"])\.prisma\/client\/([\w-]+)\1/g,
+        (_match, quote, entry) => `${quote}./prisma-client/${entry}${quote}`,
+      )
+
+      if (rewritten !== source) {
+        fs.writeFileSync(filePath, rewritten)
+        ok(`Rewrote ${hashedName}/${file} to the inlined client`)
+      }
+    }
   }
 }
 
@@ -341,7 +434,55 @@ ok(`Trimmed ${(freedBytes / 1024 / 1024).toFixed(1)} MB total`)
 // ---------------------------------------------------------------------------
 step("Step 5: Adding runtime helpers")
 
-// Hostinger's Node app manager invokes `npm start` in the app root.
+// Hostinger runs `npm install` on the uploaded files even when the build command
+// is "None". npm prunes anything in node_modules that package.json does not
+// declare, so a dependency-less manifest made it delete the entire bundled
+// node_modules ("audited 1 package") and the server then failed with
+// "Cannot find module 'next'". Declare every top-level package that ships in the
+// bundle, pinned to the exact version present, so npm treats the tree as
+// satisfied and leaves it alone.
+function readBundledDependencies() {
+  const nmDir = path.join(OUT_DIR, "node_modules")
+  const deps = {}
+
+  const record = (pkgName) => {
+    const manifestPath = path.join(nmDir, ...pkgName.split("/"), "package.json")
+    if (!fs.existsSync(manifestPath)) return
+    try {
+      const { version } = JSON.parse(fs.readFileSync(manifestPath, "utf8"))
+      // Pin exactly: any range would let npm decide it needs to fetch something.
+      if (version) deps[pkgName] = version
+    } catch {
+      // A package without a readable manifest is not one npm will prune on.
+    }
+  }
+
+  for (const entry of fs.readdirSync(nmDir, { withFileTypes: true })) {
+    if (!entry.isDirectory() || entry.name.startsWith(".")) continue
+    if (entry.name.startsWith("@")) {
+      for (const scoped of fs.readdirSync(path.join(nmDir, entry.name), {
+        withFileTypes: true,
+      })) {
+        if (scoped.isDirectory()) record(`${entry.name}/${scoped.name}`)
+      }
+    } else {
+      record(entry.name)
+    }
+  }
+
+  // @prisma/client must NOT be declared. Declaring it makes npm reinstall a
+  // pristine copy from the registry and run its postinstall, which regenerates
+  // an unconfigured stub over the client generated at build time - the server
+  // then throws "@prisma/client did not initialize yet" on the first query.
+  // Leaving it undeclared keeps npm away from it; the bundled copy (and the
+  // Linux engine beside it in node_modules/.prisma) is used as-is.
+  delete deps["@prisma/client"]
+
+  return deps
+}
+
+const bundledDeps = readBundledDependencies()
+
 const runtimePkg = {
   name: "tina-yene-bakery-hostinger",
   version: "1.0.0",
@@ -350,12 +491,41 @@ const runtimePkg = {
     start: "node server.js",
     "migrate:deploy": "npx prisma migrate deploy",
   },
+  dependencies: bundledDeps,
 }
 fs.writeFileSync(
   path.join(OUT_DIR, "package.json"),
   JSON.stringify(runtimePkg, null, 2) + "\n",
 )
-ok("Wrote runtime package.json (start -> node server.js)")
+ok(
+  `Wrote runtime package.json (start -> node server.js, ` +
+    `${Object.keys(bundledDeps).length} bundled deps declared)`,
+)
+
+// Hostinger runs `npm install` on upload regardless of the build command. Even
+// with dependencies declared, npm rewrites packages it considers stale - which
+// destroys the generated Prisma client. These settings keep it from touching the
+// bundled tree: no lockfile rewrite, no audit/fund network calls, and offline so
+// it cannot pull replacements from the registry.
+fs.writeFileSync(
+  path.join(OUT_DIR, ".npmrc"),
+  `# The application is fully built and bundled; npm should not rebuild anything.
+# ignore-scripts is the important one: @prisma/client's postinstall regenerates
+# an unconfigured client over the one generated at build time.
+#
+# Note: offline/cache settings are deliberately NOT set here. Forcing offline made
+# Hostinger's install step fail rather than no-op, which left the tree in a worse
+# state than letting npm run normally.
+package-lock=false
+audit=false
+fund=false
+ignore-scripts=true
+`,
+)
+ok("Wrote .npmrc so npm install cannot rewrite the bundled node_modules")
+if (Object.keys(bundledDeps).length === 0) {
+  fail("No bundled dependencies were detected; npm would prune node_modules on the server.")
+}
 
 fs.writeFileSync(
   path.join(OUT_DIR, ".env.production.template"),
@@ -388,6 +558,9 @@ EMAIL_FROM=""
 EMAIL_TO_NOTIFY=""
 
 REVALIDATE_SECRET=""
+# Upper bound on how long cached storefront queries stay fresh, in seconds.
+# Every admin change purges the caches immediately, so this only matters for
+# writes that bypass the admin API (e.g. direct SQL). Tune without rebuilding.
 NEXT_PUBLIC_ISR_REVALIDATE_SECONDS=86400
 
 NEXT_PUBLIC_MAINTENANCE_MODE=false
@@ -543,6 +716,136 @@ await (async () => {
   }
   ok("node_modules/next extracted as a real directory")
 
+  // Hostinger runs `npm install` on the uploaded files even with the build
+  // command set to "None". That step previously pruned the entire bundled
+  // node_modules. Reproduce it here so the check fails locally instead of in
+  // production.
+  try {
+    const installOutput = execSync("npm install --omit=dev --no-audit --no-fund", {
+      cwd: extractDir,
+      stdio: "pipe",
+      encoding: "utf8",
+    })
+    const firstLine = installOutput.trim().split("\n")[0] ?? ""
+    ok(`npm install completed: ${firstLine.trim()}`)
+  } catch (err) {
+    warn(`npm install reported an error: ${err instanceof Error ? err.message : err}`)
+  }
+
+  if (!fs.existsSync(path.join(extractDir, "node_modules", "next", "package.json"))) {
+    fail(
+      "npm install pruned node_modules/next from the extracted package.\n" +
+        "The runtime package.json must declare the bundled dependencies.",
+    )
+  }
+  ok("node_modules survived npm install")
+
+  // The generated Prisma client is the fragile part: reinstalling @prisma/client
+  // replaces it with a stub whose constructor throws "did not initialize yet".
+  // Check the generated artifacts specifically, not just that a directory exists.
+  const generatedClient = path.join(extractDir, "node_modules", ".prisma", "client")
+  if (!fs.existsSync(path.join(generatedClient, "index.js"))) {
+    fail("npm install destroyed the generated Prisma client (node_modules/.prisma/client).")
+  }
+  for (const engineName of LINUX_ENGINES) {
+    if (!fs.existsSync(path.join(generatedClient, engineName))) {
+      fail(`npm install removed the Linux query engine (${engineName}).`)
+    }
+  }
+  ok("Generated Prisma client and both Linux engines survived npm install")
+
+  // Defined before the checks below so any of them can tear down cleanly. The
+  // server process started further down is killed here too once it exists.
+  let serverProcess = null
+  const cleanup = async () => {
+    if (serverProcess) serverProcess.kill()
+    // Windows keeps file handles briefly after the process dies, so an immediate
+    // recursive delete can EPERM. Retry, and treat a leftover directory as
+    // cosmetic rather than failing a build that has already been verified.
+    for (let attempt = 0; attempt < 5; attempt++) {
+      try {
+        fs.rmSync(extractDir, { recursive: true, force: true })
+        return
+      } catch {
+        await new Promise((r) => setTimeout(r, 600))
+      }
+    }
+  }
+
+  // Resolve exactly the way the server does: from inside the Turbopack copy at
+  // .next/node_modules/@prisma/client-<hash>. Booting the app locally does not
+  // prove this, because Node's directory walk finds the root node_modules/.prisma
+  // and silently succeeds where the server fails.
+  const turboPrismaDir = path.join(extractDir, ".next", "node_modules", "@prisma")
+  if (fs.existsSync(turboPrismaDir)) {
+    for (const hashedName of fs.readdirSync(turboPrismaDir)) {
+      const from = path.join(turboPrismaDir, hashedName, "default.js")
+      if (!fs.existsSync(from)) continue
+      try {
+        // Actually require the module rather than only resolving it: this runs
+        // the same code path the server does and surfaces a broken client, not
+        // just a missing file. Pass the path as a POSIX-style specifier so
+        // Windows backslashes are not read as escapes inside `node -e`.
+        const specifier = from.split(path.sep).join("/")
+        execSync(`node -e "require('${specifier}')"`, {
+          stdio: "pipe",
+          cwd: extractDir,
+        })
+        ok(`@prisma/${hashedName} loads the generated client`)
+
+        // Prove the copy is self-contained. Every previous fix passed locally
+        // because Node found the root node_modules/.prisma; on the server that
+        // path was gone. Temporarily hide it and require again - if this still
+        // works, the copy cannot be broken by anything outside its own directory.
+        // Hide BOTH node_modules/.prisma and node_modules/@prisma. Hiding only
+        // the former still let the copy resolve '@prisma/client/runtime/library.js'
+        // upward, so the previous build passed here and failed on the server.
+        const hiddenDirs = [
+          path.join(extractDir, "node_modules", ".prisma"),
+          path.join(extractDir, "node_modules", "@prisma"),
+        ]
+        const restore = []
+        try {
+          for (const dir of hiddenDirs) {
+            if (!fs.existsSync(dir)) continue
+            const hidden = `${dir}__hidden`
+            fs.renameSync(dir, hidden)
+            restore.push([hidden, dir])
+          }
+          execSync(`node -e "require('${specifier}')"`, {
+            stdio: "pipe",
+            cwd: extractDir,
+          })
+          ok(`@prisma/${hashedName} is self-contained (no external @prisma needed)`)
+        } catch (isolationErr) {
+          const detail = isolationErr?.stderr?.toString().slice(0, 600) ?? ""
+          for (const [hidden, original] of restore) {
+            if (fs.existsSync(hidden)) fs.renameSync(hidden, original)
+          }
+          await cleanup()
+          fail(
+            `@prisma/${hashedName} still depends on a package outside its own directory.\n` +
+              "Those paths are not reliably present on Hostinger, which is why the\n" +
+              "deployed server reports 'Cannot find module'.\n\n" +
+              detail,
+          )
+        } finally {
+          for (const [hidden, original] of restore) {
+            if (fs.existsSync(hidden)) fs.renameSync(hidden, original)
+          }
+        }
+      } catch (err) {
+        const detail = err?.stderr?.toString().slice(0, 600) ?? String(err)
+        await cleanup()
+        fail(
+          `@prisma/${hashedName} cannot load the generated Prisma client.\n` +
+            "This is the 'Failed to load external module' error on Hostinger.\n\n" +
+            detail,
+        )
+      }
+    }
+  }
+
   const PORT = 3989
   const testEnv = { ...process.env }
   const projectEnvPath = path.join(ROOT, ".env")
@@ -559,6 +862,7 @@ await (async () => {
     env: { ...testEnv, PORT: String(PORT), NODE_ENV: "production", HOSTNAME: "127.0.0.1" },
     stdio: ["ignore", "pipe", "pipe"],
   })
+  serverProcess = child
   let output = ""
   child.stdout.on("data", (d) => (output += d))
   child.stderr.on("data", (d) => (output += d))
@@ -574,25 +878,42 @@ await (async () => {
       await new Promise((r) => setTimeout(r, 700))
     }
   }
-  child.kill()
-
-  // Windows keeps file handles briefly after the process dies, so a immediate
-  // recursive delete can EPERM. Retry, and treat a leftover directory as
-  // cosmetic rather than failing a build that has already been verified.
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      fs.rmSync(extractDir, { recursive: true, force: true })
-      break
-    } catch {
-      await new Promise((r) => setTimeout(r, 600))
-    }
-  }
 
   if (status < 200 || status >= 400) {
+    await cleanup()
     console.error(`\n${output.slice(0, 2500)}`)
     fail("The extracted archive did not serve a request. It would 503 on Hostinger.")
   }
   ok(`Extracted archive booted and served /terms (HTTP ${status})`)
+
+  // A static page proves the server runs; only a query proves Prisma survived
+  // the install. This is the check that the "Internal Server Error" needed.
+  if (fs.existsSync(path.join(generatedClient, "query_engine-windows.dll.node"))) {
+    let dbStatus = 0
+    let dbBody = ""
+    try {
+      const res = await fetch(`http://127.0.0.1:${PORT}/api/categories`)
+      dbStatus = res.status
+      dbBody = await res.text()
+    } catch (err) {
+      await cleanup()
+      fail(`Database route unreachable after npm install: ${err}`)
+    }
+
+    if (dbStatus < 200 || dbStatus >= 400) {
+      await cleanup()
+      console.error(`\n${dbBody.slice(0, 800)}\n---\n${output.slice(-2000)}`)
+      fail(
+        `Database route returned HTTP ${dbStatus} after npm install.\n` +
+          "This is the 'Internal Server Error' seen on Hostinger.",
+      )
+    }
+    ok(`Database route works after npm install (HTTP ${dbStatus})`)
+  } else {
+    warn("Windows engine stripped; skipping the post-install database check")
+  }
+
+  await cleanup()
 })()
 
 // ---------------------------------------------------------------------------
