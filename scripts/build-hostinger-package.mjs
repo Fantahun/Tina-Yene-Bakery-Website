@@ -246,6 +246,58 @@ step("Step 4: Prisma client")
 // with the root node_modules hidden - all of which only mattered because of the
 // native engine.
 ok("Prisma 7 client needs no engine binary")
+
+// Turbopack copies @prisma/client into .next/node_modules under a hashed name
+// (@prisma/client-<hash>) whose entry files use BARE specifiers:
+//
+//   module.exports = { ...require('.prisma/client/default') }
+//
+// Node resolves that by walking up the directory tree. Locally it finds the root
+// node_modules/.prisma and works; on Hostinger the walk fails and every request
+// dies with "Failed to load external module ... Cannot find module
+// '.prisma/client/default'".
+//
+// This is a packaging artifact of Turbopack, NOT of the old Rust engine - it was
+// removed with the engine plumbing in the Prisma 7 migration and immediately
+// broke production again. Inline the generated client into the hashed copy and
+// point the specifiers at it, so resolution never leaves that directory.
+const turbopackPrismaDir = path.join(OUT_DIR, ".next", "node_modules", "@prisma")
+if (fs.existsSync(turbopackPrismaDir)) {
+  const generatedClientDir = path.join(OUT_DIR, "node_modules", ".prisma", "client")
+  if (!fs.existsSync(path.join(generatedClientDir, "default.js"))) {
+    fail(
+      "node_modules/.prisma/client is missing from the package, so the Turbopack\n" +
+        "copy of @prisma/client has nothing to point at.",
+    )
+  }
+
+  for (const hashedName of fs.readdirSync(turbopackPrismaDir)) {
+    const copyDir = path.join(turbopackPrismaDir, hashedName)
+    if (!fs.statSync(copyDir).isDirectory()) continue
+
+    const inlined = path.join(copyDir, "prisma-client")
+    if (!fs.existsSync(path.join(inlined, "default.js"))) {
+      fs.cpSync(generatedClientDir, inlined, { recursive: true, dereference: true })
+      ok(`Inlined the generated client into ${hashedName}/prisma-client`)
+    }
+
+    for (const file of fs.readdirSync(copyDir)) {
+      if (!file.endsWith(".js")) continue
+      const filePath = path.join(copyDir, file)
+      const source = fs.readFileSync(filePath, "utf8")
+      if (!source.includes(".prisma/client")) continue
+
+      const rewritten = source.replace(
+        /(['"])\.prisma\/client\/([\w-]+)\1/g,
+        (_match, quote, entry) => `${quote}./prisma-client/${entry}${quote}`,
+      )
+      if (rewritten !== source) {
+        fs.writeFileSync(filePath, rewritten)
+        ok(`Rewrote ${hashedName}/${file} to the inlined client`)
+      }
+    }
+  }
+}
 // ---------------------------------------------------------------------------
 step("Step 4b: Trimming build-only and wrong-platform files")
 
@@ -699,11 +751,58 @@ await (async () => {
     }
   }
 
-  // The Turbopack @prisma resolution checks that used to live here are gone.
-  // They verified that .next/node_modules/@prisma/client-<hash> could reach the
-  // native engine - including with the root node_modules hidden - which only
-  // mattered while an engine binary existed. Prisma 7 resolves as ordinary
-  // JavaScript, so the database check further down covers it.
+  // Load the Turbopack copy of @prisma/client the way the server does, from its
+  // own directory, with the root node_modules/.prisma and node_modules/@prisma
+  // hidden. Booting the app is not sufficient: Node's upward directory walk finds
+  // the root copy locally and succeeds where the server fails.
+  //
+  // These checks were deleted during the Prisma 7 migration as "engine-only" and
+  // production broke on the very next upload with "Cannot find module
+  // '.prisma/client/default'". They are not about the engine - they are about
+  // Turbopack's bare specifiers.
+  const turboPrismaDir = path.join(extractDir, ".next", "node_modules", "@prisma")
+  if (fs.existsSync(turboPrismaDir)) {
+    for (const hashedName of fs.readdirSync(turboPrismaDir)) {
+      const from = path.join(turboPrismaDir, hashedName, "default.js")
+      if (!fs.existsSync(from)) continue
+
+      const specifier = from.split(path.sep).join("/")
+      const hidden = []
+      try {
+        for (const dir of [
+          path.join(extractDir, "node_modules", ".prisma"),
+          path.join(extractDir, "node_modules", "@prisma"),
+        ]) {
+          if (!fs.existsSync(dir)) continue
+          const away = `${dir}__hidden`
+          fs.renameSync(dir, away)
+          hidden.push([away, dir])
+        }
+
+        execSync(`node -e "require('${specifier}')"`, {
+          stdio: "pipe",
+          cwd: extractDir,
+          timeout: 30_000,
+        })
+        ok(`@prisma/${hashedName} resolves without the root @prisma packages`)
+      } catch (err) {
+        const detail = err?.stderr?.toString().slice(0, 600) ?? String(err)
+        for (const [away, dir] of hidden) {
+          if (fs.existsSync(away)) fs.renameSync(away, dir)
+        }
+        await cleanup()
+        fail(
+          `@prisma/${hashedName} cannot load its client in isolation.\n` +
+            "This is the 'Failed to load external module' error on Hostinger.\n\n" +
+            detail,
+        )
+      } finally {
+        for (const [away, dir] of hidden) {
+          if (fs.existsSync(away)) fs.renameSync(away, dir)
+        }
+      }
+    }
+  }
 
   const PORT = 3989
   const testEnv = { ...process.env }
