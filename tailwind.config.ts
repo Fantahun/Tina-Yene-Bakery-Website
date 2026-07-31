@@ -1,4 +1,7 @@
 import type { Config } from 'tailwindcss'
+// package.json sets "type": "module", so this file is ESM and `require` is not
+// defined here. Import the plugin instead of require()-ing it at the bottom.
+import tailwindcssAnimate from 'tailwindcss-animate'
 
 const config: Config = {
   darkMode: ['class'],
@@ -91,6 +94,6 @@ const config: Config = {
       },
     },
   },
-  plugins: [require('tailwindcss-animate')],
+  plugins: [tailwindcssAnimate],
 }
 export default config

@@ -4,11 +4,20 @@ import { FeaturedProducts } from "@/components/home/featured-products"
 import { AboutSection } from "@/components/home/about-section"
 import { CtaBanner } from "@/components/home/cta-banner"
 
+import { unstable_cache } from "next/cache"
+
 import { prisma } from "@/lib/prisma"
+import { DEFAULT_PUBLIC_REVALIDATE_SECONDS } from "@/lib/isr"
 import type { ShopCategory, ShopProduct } from "@/lib/shop-types"
 
-// Public storefront pages use ISR so visitors get cached pages with background refreshes.
-export const revalidate = 86400
+const REVALIDATE_SECONDS = DEFAULT_PUBLIC_REVALIDATE_SECONDS
+
+// This page reads the database, which is not reachable from the machine that
+// builds the deployment package (production MySQL is bound to the server's
+// localhost). Rendering on demand keeps the build database-independent; the
+// cached data layer below means visitors still get cached results rather than a
+// live query per request.
+export const dynamic = "force-dynamic"
 
 const MAX_FEATURED = 4
 
@@ -218,8 +227,17 @@ async function getHomeData() {
   return { categories: mappedCategories, featuredProducts }
 }
 
+// Cache the query results rather than the rendered page. The page itself renders
+// on demand (so the build needs no database), but only the first request after
+// each expiry actually touches MySQL - the rest are served from the data cache.
+// The "home-data" tag lets /api/revalidate purge this immediately after an edit.
+const getCachedHomeData = unstable_cache(getHomeData, ["home-data"], {
+  revalidate: REVALIDATE_SECONDS,
+  tags: ["home-data", "products", "categories"],
+})
+
 export default async function HomePage() {
-  const { categories, featuredProducts } = await getHomeData()
+  const { categories, featuredProducts } = await getCachedHomeData()
 
   return (
     <>

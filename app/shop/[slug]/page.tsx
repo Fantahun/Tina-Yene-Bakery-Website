@@ -1,38 +1,24 @@
 import { notFound } from "next/navigation"
+import { unstable_cache } from "next/cache"
 
 import { ProductDetail } from "@/components/products/product-detail"
 import { prisma } from "@/lib/prisma"
+import { DEFAULT_PUBLIC_REVALIDATE_SECONDS } from "@/lib/isr"
 import type { ShopProduct } from "@/lib/shop-types"
 
-export const revalidate = 86400
+// Rendered on demand so the deployment build needs no database connection.
+export const dynamic = "force-dynamic"
 
 interface ProductDetailPageProps {
   params: Promise<{ slug: string }>
 }
 
-export async function generateStaticParams() {
-  const products = await prisma.product.findMany({
-    where: {
-      isActive: true,
-      deletedAt: null,
-      category: {
-        isActive: true,
-        deletedAt: null,
-      },
-    },
-    select: {
-      slug: true,
-    },
-  })
+// generateStaticParams was removed: enumerating product slugs requires a database
+// connection the build machine does not have. Product pages now render on first
+// request, with the per-slug query cached below so repeat visitors cost no queries.
 
-  return products.map((product) => ({
-    slug: product.slug,
-  }))
-}
-
-export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
-  const { slug } = await params
-  const product = await prisma.product.findFirst({
+async function getProductBySlug(slug: string) {
+  return prisma.product.findFirst({
     where: {
       slug,
       isActive: true,
@@ -76,6 +62,19 @@ export default async function ProductDetailPage({ params }: ProductDetailPagePro
       },
     },
   })
+}
+
+// Cache per slug so a popular product costs one query per revalidation window
+// rather than one per visitor.
+const getCachedProductBySlug = (slug: string) =>
+  unstable_cache(() => getProductBySlug(slug), ["product-detail", slug], {
+    revalidate: DEFAULT_PUBLIC_REVALIDATE_SECONDS,
+    tags: ["products", `product:${slug}`],
+  })()
+
+export default async function ProductDetailPage({ params }: ProductDetailPageProps) {
+  const { slug } = await params
+  const product = await getCachedProductBySlug(slug)
 
   if (!product) {
     notFound()

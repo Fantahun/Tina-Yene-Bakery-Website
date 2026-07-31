@@ -1,0 +1,24 @@
+# Next.js standalone output cannot be produced from pnpm's default symlinked
+# node_modules: the tracer follows links into the .pnpm store and omits the
+# top-level entries Node's CommonJS resolver needs, so the packaged server dies on
+# boot with MODULE_NOT_FOUND (styled-jsx, @swc/helpers, ...). A hoisted, flat
+# layout makes the traced bundle self-contained.
+nodeLinker: hoisted
+
+# Prisma must run its postinstall to generate the client and download the query
+# engines (including the Linux engine the deployment package ships). sharp builds
+# its native image binaries. These were previously left as unfilled placeholders,
+# which silently skipped those build steps.
+allowBuilds:
+  '@prisma/client': true
+  '@prisma/engines': true
+  prisma: true
+  sharp: true
+  unrs-resolver: true
+
+# NOTE: pnpm 11 no longer reads the "pnpm" field in package.json, so the
+# overrides declared there ("@types/react", "@types/react-dom", zeptomatch,
+# "@prisma/dev") are currently ignored. They belong here as `overrides:` and
+# `ignoredBuiltDependencies:` - but adding them changes the resolution and forces
+# a full reinstall, so apply it deliberately when you have registry access and
+# can re-verify the build, not as a drive-by change.

@@ -1,6 +1,45 @@
 import nodemailer from "nodemailer";
+import type { Transporter } from "nodemailer";
 import { Order, OrderItem, PickupLocation } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+
+// A transport per send opens a fresh TLS connection (and its sockets/threads)
+// for every email, which inflates the process count on shared hosting. Cache a
+// single pooled transport on globalThis so connections are reused and bounded.
+const globalForMailer = globalThis as unknown as { mailer?: Transporter };
+
+function getTransporter(): Transporter {
+  if (globalForMailer.mailer) return globalForMailer.mailer;
+
+  const port = Number(process.env.EMAIL_PORT) || 587;
+  // Port 465 is implicit TLS: connecting without `secure` makes nodemailer
+  // attempt a plaintext handshake that hangs until the socket times out,
+  // holding the request open. Derive it from the port and allow an explicit
+  // override for non-standard setups.
+  const secure = process.env.SMTP_SECURE
+    ? process.env.SMTP_SECURE === "true"
+    : port === 465;
+
+  const transporter = nodemailer.createTransport({
+    host: process.env.EMAIL_HOST,
+    port,
+    secure,
+    auth: {
+      user: process.env.EMAIL_USER,
+      pass: process.env.EMAIL_PASS,
+    },
+    pool: true,
+    maxConnections: 2,
+    maxMessages: 100,
+    // Fail fast instead of pinning a request thread to a dead SMTP host.
+    connectionTimeout: 10_000,
+    greetingTimeout: 10_000,
+    socketTimeout: 20_000,
+  });
+
+  globalForMailer.mailer = transporter;
+  return transporter;
+}
 
 export async function sendEmail({
   to,
@@ -15,15 +54,7 @@ export async function sendEmail({
   text: string;
   html?: string;
 }) {
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT) || 587,
-    secure: process.env.SMTP_SECURE === "true", // true for 465, false for other ports
-    auth: {
-      user: process.env.EMAIL_USER,
-      pass: process.env.EMAIL_PASS,
-    },
-  });
+  const transporter = getTransporter();
 
   try {
     const info = await transporter.sendMail({
