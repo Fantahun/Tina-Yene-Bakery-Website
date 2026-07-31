@@ -14,6 +14,8 @@ import fs from "node:fs"
 import path from "node:path"
 import { fileURLToPath } from "node:url"
 
+import { writeZip } from "./lib/zip-writer.mjs"
+
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..")
 const OUT_DIR = path.join(ROOT, "dist-hostinger")
 const ZIP_NAME = "tina-bakery-hostinger.zip"
@@ -312,11 +314,11 @@ for (const base of ["node_modules", "node_modules/.pnpm", "node_modules/@img"]) 
   }
 }
 
-// Next's own bundled dev/build toolchain: the standalone server only needs the
-// runtime, never the compiler or the dev server.
-for (const dir of ["compiled/webpack", "compiled/terser", "compiled/babel", "compiled/jest-worker"]) {
-  prune(`node_modules/next/dist/${dir}`, `next/${dir} (build-only)`)
-}
+// Nothing under node_modules/next is pruned. These look like build-only bundles
+// but the standalone server loads several at runtime - removing
+// next/dist/compiled/babel produced "Cannot find module
+// 'next/dist/compiled/babel/code-frame'" on boot. The few MB saved are not worth
+// guessing at Next's internal requires.
 
 // Source maps are large and only useful when debugging locally.
 let mapCount = 0
@@ -483,47 +485,115 @@ step("Step 6: Creating ZIP")
 
 fs.rmSync(ZIP_PATH, { force: true })
 
-// Both Compress-Archive and the .NET ZipFile API fail on this package: Next's
-// route-segment output and pnpm's nested store produce paths beyond the legacy
-// 260-char MAX_PATH limit, which Windows PowerShell 5.1 does not opt out of even
-// when LongPathsEnabled is set in the registry. GNU tar (bundled with Windows 10+)
-// handles them correctly and can write a ZIP-format archive directly.
-function createZip() {
-  const attempts = [
-    {
-      name: "tar",
-      cmd: `tar -a -c -f "${ZIP_PATH}" -C "${OUT_DIR}" .`,
-    },
-    {
-      name: "zip",
-      cmd: `cd "${OUT_DIR}" && zip -rq "${ZIP_PATH}" .`,
-    },
-    {
-      name: "powershell",
-      cmd:
-        `powershell -NoProfile -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; ` +
-        `[System.IO.Compression.ZipFile]::CreateFromDirectory('${OUT_DIR}', '${ZIP_PATH}', ` +
-        `[System.IO.Compression.CompressionLevel]::Optimal, $false)"`,
-    },
-  ]
+// Written in-process rather than shelling out. Every external option was broken
+// here: Compress-Archive and the .NET ZipFile API emit BACKSLASH entry names,
+// which are invalid per the ZIP spec and unpack on Linux as single files with a
+// literal "\" in the name rather than directories - the server then dies with
+// "Cannot find module 'next'" despite every byte being present. `tar -a -c -f
+// out.zip` silently writes a TAR stream, and `zip` is not installed.
+const { entries } = writeZip(OUT_DIR, ZIP_PATH)
+ok(`Archive written with ${entries} entries`)
 
-  for (const { name, cmd } of attempts) {
-    try {
-      execSync(cmd, { stdio: "pipe" })
-      if (fs.existsSync(ZIP_PATH) && fs.statSync(ZIP_PATH).size > 0) {
-        ok(`Archive created using ${name}`)
-        return
-      }
-    } catch {
-      fs.rmSync(ZIP_PATH, { force: true })
-      warn(`${name} could not create the archive; trying the next method`)
+// Verify the archive is a real ZIP with POSIX separators before declaring
+// success. This is the exact defect that produced a 503 on Hostinger, so it is
+// checked rather than assumed.
+const header = Buffer.alloc(4)
+const zipFd = fs.openSync(ZIP_PATH, "r")
+fs.readSync(zipFd, header, 0, 4, 0)
+fs.closeSync(zipFd)
+if (header.toString("latin1", 0, 2) !== "PK") {
+  fail("Output is not a ZIP archive (missing PK signature).")
+}
+ok("Verified ZIP signature")
+
+const badSeparator = fs
+  .readFileSync(ZIP_PATH)
+  .toString("latin1")
+  .includes("node_modules\\next\\")
+if (badSeparator) {
+  fail("Archive contains backslash entry names; it would not unpack on Linux.")
+}
+ok("Verified entry names use forward slashes")
+
+// ---------------------------------------------------------------------------
+step("Step 7: Booting the extracted archive")
+
+// The earlier smoke test ran against dist-hostinger/. This extracts the actual
+// ZIP to a clean directory and boots that, which is what Hostinger does. Testing
+// only the pre-zip directory previously missed both a corrupt archive layout and
+// an over-aggressive trim, each of which produced a 503 in production.
+await (async () => {
+  const { spawn } = await import("node:child_process")
+  const extractDir = path.join(ROOT, ".zip-verify")
+  fs.rmSync(extractDir, { recursive: true, force: true })
+  fs.mkdirSync(extractDir, { recursive: true })
+
+  try {
+    execSync(
+      `powershell -NoProfile -Command "Add-Type -AssemblyName System.IO.Compression.FileSystem; ` +
+        `[System.IO.Compression.ZipFile]::ExtractToDirectory('${ZIP_PATH}', '${extractDir}')"`,
+      { stdio: "pipe" },
+    )
+  } catch (err) {
+    fail(`Could not extract the archive for verification: ${err}`)
+  }
+
+  if (!fs.existsSync(path.join(extractDir, "node_modules", "next", "package.json"))) {
+    fail("Extracted archive has no node_modules/next - it would 503 on Hostinger.")
+  }
+  ok("node_modules/next extracted as a real directory")
+
+  const PORT = 3989
+  const testEnv = { ...process.env }
+  const projectEnvPath = path.join(ROOT, ".env")
+  if (fs.existsSync(projectEnvPath)) {
+    for (const line of fs.readFileSync(projectEnvPath, "utf8").split(/\r?\n/)) {
+      const match = /^\s*([A-Z0-9_]+)\s*=\s*(.*)$/i.exec(line)
+      if (!match) continue
+      testEnv[match[1]] = match[2].trim().replace(/^["']|["']$/g, "")
     }
   }
 
-  fail("ZIP creation failed. The package is still usable at dist-hostinger/.")
-}
+  const child = spawn(process.execPath, ["server.js"], {
+    cwd: extractDir,
+    env: { ...testEnv, PORT: String(PORT), NODE_ENV: "production", HOSTNAME: "127.0.0.1" },
+    stdio: ["ignore", "pipe", "pipe"],
+  })
+  let output = ""
+  child.stdout.on("data", (d) => (output += d))
+  child.stderr.on("data", (d) => (output += d))
 
-createZip()
+  const deadline = Date.now() + 30_000
+  let status = 0
+  while (Date.now() < deadline) {
+    if (child.exitCode !== null) break
+    try {
+      status = (await fetch(`http://127.0.0.1:${PORT}/terms`)).status
+      break
+    } catch {
+      await new Promise((r) => setTimeout(r, 700))
+    }
+  }
+  child.kill()
+
+  // Windows keeps file handles briefly after the process dies, so a immediate
+  // recursive delete can EPERM. Retry, and treat a leftover directory as
+  // cosmetic rather than failing a build that has already been verified.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    try {
+      fs.rmSync(extractDir, { recursive: true, force: true })
+      break
+    } catch {
+      await new Promise((r) => setTimeout(r, 600))
+    }
+  }
+
+  if (status < 200 || status >= 400) {
+    console.error(`\n${output.slice(0, 2500)}`)
+    fail("The extracted archive did not serve a request. It would 503 on Hostinger.")
+  }
+  ok(`Extracted archive booted and served /terms (HTTP ${status})`)
+})()
 
 // ---------------------------------------------------------------------------
 function dirSizeMb(dir) {
