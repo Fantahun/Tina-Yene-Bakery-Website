@@ -9,3 +9,15 @@ node_modules/
 .env
 .env*.local
 .DS_Store
+
+# Hostinger deployment build output (regenerate with
+# `node scripts/build-hostinger-package.mjs`)
+dist-hostinger/
+tina-bakery-hostinger*.zip
+
+# Stale tooling scratch output
+.tmp-*.txt
+.tsc-check.txt
+.tsc-exit.txt
+.lint-output.txt
+tsconfig.tsbuildinfo

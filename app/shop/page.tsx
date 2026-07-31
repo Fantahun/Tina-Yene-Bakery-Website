@@ -1,10 +1,15 @@
 import { ShopPageClient } from "./shop-page-client";
 import { Suspense } from "react";
 
+import { unstable_cache } from "next/cache";
+
 import { prisma } from "@/lib/prisma";
+import { DEFAULT_PUBLIC_REVALIDATE_SECONDS } from "@/lib/isr";
 import type { ShopCategory, ShopProduct } from "@/lib/shop-types";
 
-export const revalidate = 86400;
+// Rendered on demand so the deployment build needs no database connection;
+// the cached data layer below keeps MySQL traffic to one query per expiry.
+export const dynamic = "force-dynamic";
 
 async function getShopPageData() {
   const [categories, products] = await Promise.all([
@@ -113,8 +118,13 @@ async function getShopPageData() {
   return { categories: mappedCategories, products: mappedProducts };
 }
 
+const getCachedShopPageData = unstable_cache(getShopPageData, ["shop-page-data"], {
+  revalidate: DEFAULT_PUBLIC_REVALIDATE_SECONDS,
+  tags: ["shop-data", "products", "categories"],
+});
+
 export default async function ShopPage() {
-  const { categories, products } = await getShopPageData();
+  const { categories, products } = await getCachedShopPageData();
 
   return (
     <Suspense

@@ -1,4 +1,4 @@
-import { revalidatePath } from "next/cache"
+import { revalidatePath, revalidateTag } from "next/cache"
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 
@@ -55,9 +55,36 @@ export async function POST(request: Request) {
     revalidatePath(path)
   }
 
+  // The DB-backed pages render on demand and cache their *queries* via
+  // unstable_cache, which revalidatePath does not clear. Purge the matching tags
+  // too, or an admin edit would not appear until the 24h window expired.
+  const tags = new Set<string>()
+  switch (target) {
+    case "all":
+      tags.add("products").add("categories").add("home-data").add("shop-data")
+      break
+    case "home":
+      tags.add("home-data")
+      break
+    case "shop":
+      tags.add("shop-data").add("products")
+      break
+    case "product":
+      tags.add("products").add("shop-data").add("home-data")
+      if (slug) tags.add(`product:${slug}`)
+      break
+  }
+
+  // Next 16 requires a cache-life profile; "max" expires the entry immediately
+  // and lets the next request repopulate it.
+  for (const tag of tags) {
+    revalidateTag(tag, "max")
+  }
+
   return NextResponse.json({
     ok: true,
     message: "Revalidation queued successfully",
     paths,
+    tags: [...tags],
   })
 }
