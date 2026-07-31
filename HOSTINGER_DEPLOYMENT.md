@@ -31,36 +31,62 @@ calls.
 against this problem. Those only ever limited **build-time** workers and had no
 effect on runtime process count, so they were removed.
 
-**Expected steady state after these changes: ~8–14 processes** against your 120
-limit.
+Locally the built package runs as **1 node process / 23 threads**, flat under
+concurrent load. **On Hostinger the deployed site sits nearer ~77 of 120.**
+
+That gap is not fully explained. Likely contributors, in order of confidence:
+
+1. The quota counts the whole account cgroup, not just your app — Hostinger's own
+   supervisor, PHP-FPM workers, cron, and the SSH session all land in the same
+   number. Local measurements only ever counted `node`.
+2. The Node app manager appears to run **two server instances** (the runtime log
+   prints `▲ Next.js` and `✓ Ready` twice per start), which doubles the app's own
+   share.
+3. Genuine per-request threads under real traffic, which idle local tests do not
+   produce.
+
+77 is comfortable against 120 and has stayed flat rather than climbing, which is
+the important distinction: a **plateau is capacity, a climb is a leak**. Confirm
+which you have with the commands in "Verify after deploying" — `query-engine`
+must be exactly 1.
 
 ---
 
 ## What ships
 
-`pnpm build:hostinger` produces `tina-bakery-hostinger.zip`:
+`pnpm build:hostinger` produces a timestamped ZIP:
 
-- **41.6 MB zipped / 78.3 MB unpacked / 2,279 files** (trivial against the 600k inode quota)
+- **~79 MB zipped / ~161 MB unpacked / ~2,296 files** (trivial against the 600k inode quota)
 - Next.js **standalone** output: `server.js` plus only the traced runtime deps
 - No dev dependencies, no `pnpm install`, no `next build` on the server
-- The **Linux** Prisma engine (`libquery_engine-debian-openssl-3.0.x.so.node`)
+- **Both** Linux Prisma engines (`debian-openssl-3.0.x` and `debian-openssl-1.1.x`)
+  plus the Windows one, so the package also runs locally
 
-Three details the script guards, because each is a silent killer:
+Four things the script guards, each a silent killer that reached production once:
 
-- **The Linux engine.** You build on Windows; the default engine is a `.dll.node`
-  that cannot load on Linux. `prisma/schema.prisma` declares
-  `binaryTargets = ["native", "debian-openssl-3.0.x"]`, and the script *verifies*
-  the `.so.node` is in the package — Next's tracer omits it intermittently, so
-  the script copies it manually when needed. A package missing it starts fine and
-  then fails on the first query.
+- **The Prisma engines.** You build on Windows; the default engine is a
+  `.dll.node` that cannot load on Linux. Hostinger reported **OpenSSL 1.1.x** at
+  runtime while an earlier package shipped only 3.0.x, and every query failed
+  with "could not locate the Query Engine". Both Debian variants now ship, and
+  the script verifies both survive the server's `npm install`.
+- **Prisma module resolution.** Turbopack copies `@prisma/client` into
+  `.next/node_modules/@prisma/client-<hash>/` with **bare specifiers**
+  (`require('.prisma/client/default')`, `require('@prisma/client/runtime/library.js')`).
+  Those resolve by walking *up* the directory tree — which works locally and
+  fails on the server. The generated client is now inlined into that directory
+  and the specifiers rewritten to relative paths, so nothing outside the folder
+  matters. The build proves it by **deleting `node_modules/.prisma` and
+  `node_modules/@prisma` and re-requiring the module**.
 - **`.env` leakage.** Next copies the build-time `.env` into standalone output.
-  That file has development secrets and `localhost:3001` URLs; shipping it would
-  leak credentials and break NextAuth. The script deletes it and ships
+  That file has development secrets and localhost URLs; shipping it would leak
+  credentials and break NextAuth. The script deletes it and ships
   `.env.production.template` instead.
-- **A boot smoke test.** After assembling the package the script starts it and
-  requests a database-free page, failing the build unless it gets a 2xx. This is
-  not ceremony: it caught two real breakages during setup that would each have
-  produced a dead site on Hostinger.
+- **The archive format.** `Compress-Archive` and .NET's `ZipFile` write
+  **backslash** entry names, which are invalid per the ZIP spec and unpack on
+  Linux as single files with `\` in the name rather than directories — the server
+  then dies with `Cannot find module 'next'`. `tar -a -c -f out.zip` silently
+  writes a TAR stream instead. The archive is now written by
+  `scripts/lib/zip-writer.mjs` and the entry names are asserted before release.
 
 ### pnpm requires a hoisted layout
 
@@ -172,35 +198,73 @@ environment, so the build-time keys are picked up correctly there.
 
 ---
 
-## Option A — Deploy from GitHub (try this first)
+## Deploying: build locally, upload a ZIP
 
-The four root-cause fixes live in the application code, so they apply no matter
-how the app is deployed. Deploying from GitHub is the cleaner test of whether they
-were sufficient, and you keep push-to-deploy plus automatic env-var injection.
+This is the path that is **known to work** — the live site was deployed this way
+and takes orders end to end. Building on the server is possible but was never
+made to work here; see "Alternatives" at the end for why.
 
-`package.json` `start` runs `scripts/start-server.mjs`, which detects the
-standalone build and launches `.next/standalone/server.js`, copying `.next/static`
-and `public/` beside it first. It falls back to `next start` if no standalone
-output exists, so both deployment paths work from the same repo.
+### Build
 
-1. hPanel → **Website → Node.js app**, connect the GitHub repo and branch
-2. Node version **22.x**, build command `npm run build`, start command `npm start`
-3. Add every variable from the table above in the env panel — including
-   `DATA_BASE_URL` pointing at **Hostinger's local MySQL**
-4. Deploy, then watch **Max Processes** for a day
+```bash
+pnpm install
+pnpm build:hostinger          # or: node scripts/build-hostinger-package.mjs
+```
 
-Expect a spike **during** the build (`npm install` + `next build` are genuinely
-heavy). That is transient. What matters is the **steady state afterwards**: a flat
-~8–14, not a sustained plateau.
+Produces `tina-bakery-hostinger-DD-MM-YYYY-HH_MM.zip` in the project root. The
+timestamp means successive builds do not overwrite each other, so the artifact on
+Hostinger can always be traced back to when it was made.
 
-If the plateau returns, switch to Option B — the ZIP pipeline moves the build off
-the server entirely.
+The build refuses to emit a ZIP unless it has verified all of the following, each
+of which corresponds to a failure that actually reached production during setup:
+
+| Check | Failure it prevents |
+|-------|---------------------|
+| ZIP has a `PK` signature and forward-slash entry names | Backslash paths unpack on Linux as files with `\` in the name → `Cannot find module 'next'`, 503 |
+| Extracted archive contains `node_modules/next` as a real directory | Same as above, verified after extraction rather than assumed |
+| `npm install` is run on the extracted copy, then re-checked | Hostinger runs `npm install` even with build command "None"; it pruned the whole bundled `node_modules` |
+| Generated Prisma client + both Linux engines survive that install | Reinstalling `@prisma/client` replaces the generated client with a stub → "did not initialize yet" |
+| The Turbopack copy of `@prisma/client` loads **with `node_modules/.prisma` and `node_modules/@prisma` deleted** | Bare specifiers resolved upward locally but not on the server → "Failed to load external module" |
+| Extracted archive boots and serves a static page | Catches over-aggressive trimming |
+| Extracted archive serves a **database-backed** route | A static page passes while Prisma is broken |
+
+Flags: `--skip-build` reuses the existing `.next`; `--linux-only` strips the
+Windows engine to save ~15 MB (at the cost of not being able to run the package
+locally).
+
+### Hostinger settings
+
+hPanel → **Website → Node.js app** (or **Deploy from source files**):
+
+| Setting | Value |
+|---------|-------|
+| Framework preset | **Other** — do *not* pick Next.js; that makes Hostinger try to build, and the build fails on an already-built package |
+| Root directory | `./` |
+| Node version | **22.x** |
+| Package manager | npm (irrelevant — nothing is installed from your lockfile) |
+| **Build command** | **None** — the app is already built |
+| **Entry file** | `server.js` |
+| Output directory | *(leave empty)* — `server.js` sits at the ZIP root |
+
+### Deploy
+
+1. Upload the ZIP in the deployment dialog and apply the settings above
+2. **First deployment:** add every environment variable (see the table earlier).
+   Nothing works without at least `DATA_BASE_URL` and `NEXTAUTH_SECRET`.
+3. **Redeploying:** upload the new ZIP only. Environment variables persist —
+   add new ones if the release introduced any.
+4. Wait for **Completed**, then load the site
+
+### If it fails
+
+Read `.builds/current/nodejs/console.log` in File Manager — the runtime error is
+there, and `stderr.log` is often empty because Next logs to stdout. Every failure
+during setup was diagnosed from that file. The deployment "Build logs" panel only
+shows the install step and is rarely the useful one.
 
 ---
 
-## Option B — Build locally, upload a ZIP
-
-## Step 1 — Create the database on Hostinger
+## One-time setup — Create the database on Hostinger
 
 hPanel → **Databases → MySQL Databases**. Create a database and user, and grant
 all privileges. Record the exact name and username (Hostinger prefixes both,
@@ -209,7 +273,7 @@ e.g. `u123456789_yene`).
 You do **not** need a shadow database. That is only for `prisma migrate dev`
 during development; production uses `migrate deploy`, which never touches it.
 
-## Step 2 — Migrate your data from Aiven
+## One-time setup — Migrate your data from Aiven
 
 Run locally, on a network that can reach Aiven (your current network cannot —
 that is why the connection times out, not because the instance is down).
@@ -241,71 +305,7 @@ mysql -u DB_USER -p DB_NAME -e "
 If the counts look right, delete `yene-backup.sql` from the server — it contains
 your full customer and order history in plaintext.
 
-## Step 3 — Build the package locally
-
-```bash
-pnpm install
-pnpm build:hostinger
-```
-
-Produces `tina-bakery-hostinger.zip`. The build needs **no database connection**
-(see "Rendering model" below) and refuses to produce a ZIP unless the packaged
-server boots and serves a request.
-
-## Step 4 — Upload and extract
-
-1. hPanel → **File Manager**, go to your app directory (e.g. `domains/yenebakery.com/public_html`)
-2. Upload `tina-bakery-hostinger.zip`
-3. **Extract** it there
-4. Delete the ZIP afterwards to reclaim space
-
-## Step 5 — Create `.env` on the server
-
-Copy `.env.production.template` to `.env` and fill in real values. The critical
-lines:
-
-```bash
-NODE_ENV=production
-PORT=3000
-
-# LOCAL MySQL over 127.0.0.1 — not a remote host.
-# connection_limit=5 is deliberate: one pooled client against a local database is
-# plenty, and it keeps process/thread count far below the plan quota.
-# pool_timeout makes exhaustion fail fast instead of hanging a request.
-DATA_BASE_URL="mysql://DB_USER:DB_PASSWORD@127.0.0.1:3306/DB_NAME?connection_limit=5&pool_timeout=10&connect_timeout=10"
-
-# MUST be the real domain. Leaving these as localhost breaks NextAuth callbacks
-# and makes server-side fetches hang — another source of stuck processes.
-NEXT_PUBLIC_BASE_URL="https://yenebakery.com"
-NEXTAUTH_URL="https://yenebakery.com"
-NEXTAUTH_SECRET="<openssl rand -base64 32>"
-
-EMAIL_PORT=465   # implicit TLS; the code now sets `secure` from this
-```
-
-Then `chmod 600 .env`.
-
-## Step 6 — Apply migrations
-
-```bash
-cd ~/domains/yenebakery.com/public_html
-npx prisma migrate deploy
-```
-
-(Skip if you imported a dump that already contains the full schema.)
-
-## Step 7 — Start the app
-
-hPanel → **Node.js** app:
-
-- **Node version:** 22.x
-- **Application root:** your app directory
-- **Startup file:** `server.js`
-- **Start command:** `node server.js`
-
-Do **not** use `npm start`/`next start` — the standalone bundle has no Next CLI.
-
-## Step 8 — Verify
+## Verify after deploying
 
 ```bash
 curl -I https://yenebakery.com
@@ -420,6 +420,41 @@ If Hostinger blocks outbound 465, switch to their SMTP relay and set
 **Stripe webhooks failing**
 `STRIPE_WEBHOOK_SECRET` must match the endpoint registered for the live domain,
 and the endpoint URL must be `https://yenebakery.com/api/webhooks/stripe`.
+
+---
+
+## Alternatives to building locally
+
+### Building on Hostinger from a Git repo
+
+`package.json` `start` runs `scripts/start-server.mjs`, which detects a
+standalone build and launches `.next/standalone/server.js` (copying `.next/static`
+and `public/` beside it), falling back to `next start` otherwise. So the repo is
+*capable* of a server-side build: build command `npm run build`, start `npm start`.
+
+It has **not been verified end to end here**, and the risks are known:
+
+- The whole class of packaging bugs above disappears — the build happens where it
+  runs, so no cross-platform engine, path-separator, or module-resolution issues.
+- But `npm install` + `next build` on a shared host is genuinely heavy: hundreds
+  of processes and threads for several minutes, every deploy. That is transient,
+  not a steady-state leak.
+- The build needs `DATA_BASE_URL` present at build time even though the pages
+  render on demand, because `next build` evaluates route modules.
+- If the build OOMs or is killed mid-way, the site can be left broken, whereas a
+  bad ZIP upload leaves the previous version running until you replace it.
+
+### Uploading source and building on the server
+
+Same trade as above without push-to-deploy. Zip the repo *without* `node_modules`
+and `.next`, set build command to `npm install && npm run build`, entry file
+`server.js`. Untested here.
+
+### Uploading a pre-built package and building again on the server
+
+Not useful — `next build` regenerates `.next` from source, so the shipped build is
+discarded. If you want a server-side build, send source; if you want a local
+build, send the ZIP.
 
 ---
 
