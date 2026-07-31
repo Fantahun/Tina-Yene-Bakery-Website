@@ -2,6 +2,7 @@ import nodemailer from "nodemailer";
 import type { Transporter } from "nodemailer";
 import { Order, OrderItem, PickupLocation } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
+import { getPublicSiteUrlOrNull } from "@/lib/site-url";
 
 // A transport per send opens a fresh TLS connection (and its sockets/threads)
 // for every email, which inflates the process count on shared hosting. Cache a
@@ -76,7 +77,10 @@ export async function sendEmail({
 export async function sendOrderConfirmationEmail(
   order: Order & { items: OrderItem[]; pickupLocation: PickupLocation | null },
 ) {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://yenebakery.com";
+  // "Track your order" links go to a customer's inbox, so a local address is
+  // useless to them. Prefer the configured public origin and only fall back to
+  // the production domain when it is missing or local - never emit localhost.
+  const baseUrl = getPublicSiteUrlOrNull() ?? "https://yenebakery.com";
 
   // Format currency
   const formatCurrency = (amount: number | string | any) => {

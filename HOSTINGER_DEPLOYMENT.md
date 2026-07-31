@@ -441,6 +441,22 @@ is not in the ZIP, so it is never overwritten.**
 
 ## Troubleshooting
 
+**Checkout redirects to `localhost` after payment**
+`NEXT_PUBLIC_BASE_URL` is missing or still local in the environment panel. It is
+read at **runtime** by the Stripe server action, so this is a panel fix and needs
+no rebuild:
+
+```
+NEXT_PUBLIC_BASE_URL=https://yenebakery.com
+NEXTAUTH_URL=https://yenebakery.com
+```
+
+Restart the Node app afterwards. `NEXTAUTH_URL` needs the same value or admin
+login redirects break in the same way.
+
+Checkout now throws if this is unset or local, rather than charging the customer
+and then sending them to an address only reachable on a developer's machine.
+
 **An admin change is not showing on the public site**
 Admin writes purge the caches automatically, so this normally means the change
 did not go through the admin API — a direct SQL edit, a restored dump, or an

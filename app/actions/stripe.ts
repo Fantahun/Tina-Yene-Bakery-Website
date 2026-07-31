@@ -1,6 +1,7 @@
 "use server";
 
 import { stripe } from "@/lib/stripe";
+import { getSiteUrl, getPublicSiteUrlOrNull } from "@/lib/site-url";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
 import { FulfillmentMethod, PaymentStatus, Prisma } from "@prisma/client";
@@ -106,30 +107,16 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
         if (dbProduct.imageUrl.startsWith("http")) {
           productImages.push(dbProduct.imageUrl);
         } else {
-          // It's a relative path.
-          const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-          // Stripe requires absolute URLs.
-          // Also, Stripe often rejects "localhost" as it cannot reach it to download the image.
-          // We only include the image if we have a valid public base URL.
-          if (
-            baseUrl &&
-            !baseUrl.includes("localhost") &&
-            !baseUrl.includes("127.0.0.1")
-          ) {
-            try {
-              // Construct absolute URL safely
-              // Remove leading slash from path if base has trailing, or vice versa
-              const cleanBase = baseUrl.endsWith("/")
-                ? baseUrl.slice(0, -1)
-                : baseUrl;
-              const cleanPath = dbProduct.imageUrl.startsWith("/")
-                ? dbProduct.imageUrl
-                : `/${dbProduct.imageUrl}`;
-              productImages.push(`${cleanBase}${cleanPath}`);
-            } catch (e) {
-              // ignore invalid url construction
-              console.warn("Invalid image URL construction", e);
-            }
+          // A relative path. Stripe needs an absolute URL and fetches the image
+          // itself, so a local address is omitted rather than sent and rejected.
+          // Unlike return_url this is optional - a missing image is cosmetic, so
+          // it degrades quietly instead of throwing.
+          const baseUrl = getPublicSiteUrlOrNull();
+          if (baseUrl) {
+            const cleanPath = dbProduct.imageUrl.startsWith("/")
+              ? dbProduct.imageUrl
+              : `/${dbProduct.imageUrl}`;
+            productImages.push(`${baseUrl}${cleanPath}`);
           }
         }
       }
@@ -259,7 +246,9 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
         orderId: order.id,
         confirmationNumber: order.confirmationNumber,
       },
-      return_url: `${process.env.NEXT_PUBLIC_BASE_URL}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
+      // Throws if NEXT_PUBLIC_BASE_URL is missing or local, rather than sending
+      // a paying customer to a localhost URL after a successful charge.
+      return_url: `${getSiteUrl()}/checkout/success?session_id={CHECKOUT_SESSION_ID}`,
     });
 
     // Update order with Stripe Session ID
