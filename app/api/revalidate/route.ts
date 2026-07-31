@@ -5,6 +5,7 @@ import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { normalizePublicRevalidatePaths } from "@/lib/isr"
+import { ALL_STOREFRONT_TAGS } from "@/lib/cache-invalidation"
 
 export async function POST(request: Request) {
   const session = await getServerSession(authOptions)
@@ -61,7 +62,10 @@ export async function POST(request: Request) {
   const tags = new Set<string>()
   switch (target) {
     case "all":
-      tags.add("products").add("categories").add("home-data").add("shop-data")
+      // Must match ALL_STOREFRONT_TAGS in lib/cache-invalidation.ts. This
+      // previously omitted site-settings and pickup-locations, so "All public
+      // pages" left exactly the caches a manual purge is most often used for.
+      for (const tag of ALL_STOREFRONT_TAGS) tags.add(tag)
       break
     case "home":
       tags.add("home-data")

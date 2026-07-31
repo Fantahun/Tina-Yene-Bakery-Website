@@ -24,7 +24,7 @@ const IMMEDIATE = "max" as const
  *
  * When you add a new cached query, add its tag here too.
  */
-const ALL_STOREFRONT_TAGS = [
+export const ALL_STOREFRONT_TAGS = [
   "home-data",
   "shop-data",
   "products",

@@ -369,7 +369,53 @@ matters for writes that bypass the admin API (direct SQL, for example) - admin
 edits appear immediately regardless.
 
 When you add a **new cached query**, add its tag to `ALL_STOREFRONT_TAGS` in
-`lib/cache-invalidation.ts` so it gets purged too.
+`lib/cache-invalidation.ts` so it gets purged too. `/api/revalidate` imports the
+same constant, so the manual control below stays in sync automatically.
+
+### Manual purge from the admin panel
+
+**Admin → Settings → Public Page Revalidation** forces a refresh without a
+deploy or a restart.
+
+- **Page Target** — `All public pages`, `Home page`, `Shop listing`,
+  `Single product page`, or an individual static page
+- **Product Slug** — only used when the target is `Single product page`
+  (e.g. `yene-signature-vanilla`)
+
+Visitors keep seeing the current cached page until the fresh one is ready, so
+this is safe to run on a live site.
+
+Normal admin edits already purge the caches automatically, so this is for the
+cases where that cannot see the change:
+
+- Someone edited MySQL directly, or restored a dump, bypassing the admin API
+- An image was replaced at the same URL, so the page is stale but no row changed
+- `NEXT_PUBLIC_ISR_REVALIDATE_SECONDS` was raised and you want the old window
+  cleared now rather than waiting it out
+- A deploy left a warm cache and you want a clean slate
+
+Prefer the narrowest target that covers the change: `All public pages` re-renders
+everything on next visit, which is a burst of work on a shared host. `Home page`
+or `Shop listing` is usually enough.
+
+The same purge is available server-to-server for scripts and automation:
+
+```bash
+curl -X POST https://yenebakery.com/api/revalidate \
+  -H "Content-Type: application/json" \
+  -H "x-revalidate-secret: $REVALIDATE_SECRET" \
+  -d '{"target":"all"}'
+
+# Single product
+curl -X POST https://yenebakery.com/api/revalidate \
+  -H "Content-Type: application/json" \
+  -H "x-revalidate-secret: $REVALIDATE_SECRET" \
+  -d '{"target":"product","slug":"yene-signature-vanilla"}'
+```
+
+Browser requests require an authenticated admin session; the header is the
+alternative for automation. The response lists the paths and tags it purged, so
+you can confirm it did what you expected.
 
 ---
 
@@ -385,6 +431,16 @@ is not in the ZIP, so it is never overwritten.**
 ---
 
 ## Troubleshooting
+
+**An admin change is not showing on the public site**
+Admin writes purge the caches automatically, so this normally means the change
+did not go through the admin API — a direct SQL edit, a restored dump, or an
+image swapped at the same URL. Use **Admin → Settings → Public Page
+Revalidation** to force a refresh (see "Manual purge from the admin panel").
+
+If a normal admin edit did not appear, that is a bug rather than a cache-timing
+issue: check that the route's mutating handlers are exported through
+`withCacheInvalidation`.
 
 **App won't start / 503**
 Check the Node app logs in hPanel. Most common cause is `.env` missing or
