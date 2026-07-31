@@ -432,42 +432,22 @@ if (mapCount > 0) ok(`Removed ${mapCount} source maps`)
 ok(`Trimmed ${(freedBytes / 1024 / 1024).toFixed(1)} MB total`)
 
 // ---------------------------------------------------------------------------
-step("Step 4c: Bounding the Node thread pool")
+step("Step 4c: Entry point")
 
-// Hostinger's "Max Processes" quota counts THREADS, not just processes, and the
-// account cgroup is shared with its supervisor, PHP-FPM and cron. Node's libuv
-// pool defaults to 4 but grows with concurrency, and UV_THREADPOOL_SIZE has to be
-// set before the process starts - it cannot be changed from inside server.js.
+// server.js is shipped EXACTLY as Next emits it. Do not wrap it.
 //
-// So the real server is renamed and the entry point becomes a tiny launcher that
-// sets the variable and then imports it. This caps the app's thread footprint
-// instead of letting it expand until the quota is hit and requests start 503ing.
-const realServer = path.join(OUT_DIR, "next-server-entry.js")
-const entryServer = path.join(OUT_DIR, "server.js")
-
-if (fs.existsSync(entryServer) && !fs.existsSync(realServer)) {
-  fs.renameSync(entryServer, realServer)
-  fs.writeFileSync(
-    entryServer,
-    `// Launcher: bounds the libuv thread pool before the Next.js server loads.
-// UV_THREADPOOL_SIZE is read once at process start, so it cannot be set inside
-// the server itself. Keep this file as the configured entry point.
+// A previous version renamed it and substituted a launcher that set
+// UV_THREADPOOL_SIZE before `await import`-ing the real server. That broke the
+// deployment outright: Hostinger's LiteSpeed loader (lsnode.js) `require()`s
+// server.js, and require() cannot load an ESM graph containing top-level await -
+// ERR_REQUIRE_ASYNC_MODULE on every request.
 //
-// Tune with UV_THREADPOOL_SIZE in Hostinger's environment panel if needed; the
-// default below is deliberately small for a shared host with a 120-process quota.
-process.env.UV_THREADPOOL_SIZE ||= "4"
-
-// Next reads this to size its own worker pools; 1 is right for a 2-core plan
-// where every extra worker is another slice of the same quota.
-process.env.NEXT_CPU_COUNT ||= "1"
-
-await import("./next-server-entry.js")
-`,
-  )
-  ok("server.js now bounds UV_THREADPOOL_SIZE before starting Next")
-} else {
-  warn("Entry launcher already present or server.js missing; left as-is")
-}
+// It also measured as doing nothing: 23 threads with and without the cap,
+// because libuv's pool defaults to 4 and never grew under load. Set
+// UV_THREADPOOL_SIZE in Hostinger's environment panel instead if it is ever
+// needed - the process manager exports it before Node starts, which is the only
+// point at which it actually takes effect.
+ok("server.js left exactly as Next emitted it (no wrapper)")
 
 // ---------------------------------------------------------------------------
 step("Step 5: Adding runtime helpers")
@@ -726,6 +706,23 @@ if (badSeparator) {
 }
 ok("Verified entry names use forward slashes")
 
+// Hostinger's LiteSpeed loader (/usr/local/lsws/fcgi-bin/lsnode.js) starts the
+// app with require(), not by executing it. require() refuses an ESM graph that
+// contains top-level await, so a server.js with TLA fails with
+// ERR_REQUIRE_ASYNC_MODULE on every request - while `node server.js` locally
+// succeeds, which is exactly how that shipped once. Check the entry point the
+// way the platform loads it.
+const entrySource = fs.readFileSync(path.join(OUT_DIR, "server.js"), "utf8")
+const topLevelAwait = /^\s*await\s/m.test(entrySource)
+if (topLevelAwait) {
+  fail(
+    "server.js contains top-level await.\n" +
+      "Hostinger's loader require()s this file and will fail with\n" +
+      "ERR_REQUIRE_ASYNC_MODULE. Ship server.js exactly as Next emits it.",
+  )
+}
+ok("server.js has no top-level await (safe for require())")
+
 // ---------------------------------------------------------------------------
 step("Step 7: Booting the extracted archive")
 
@@ -923,6 +920,32 @@ await (async () => {
     fail("The extracted archive did not serve a request. It would 503 on Hostinger.")
   }
   ok(`Extracted archive booted and served /terms (HTTP ${status})`)
+
+  // Booting with `node server.js` is NOT how Hostinger starts the app: its
+  // LiteSpeed loader require()s the file from CommonJS. That path rejects
+  // top-level await, so a package can pass the boot test above and still fail
+  // with ERR_REQUIRE_ASYNC_MODULE in production. Load it the platform's way.
+  try {
+    execSync(
+      `node -e "try { require('./server.js') } catch (e) { ` +
+        `if (e.code === 'ERR_REQUIRE_ASYNC_MODULE') { console.error('TLA'); process.exit(3) } ` +
+        `process.exit(0) }"`,
+      { cwd: extractDir, stdio: "pipe", timeout: 30_000 },
+    )
+    ok("server.js loads via require() the way Hostinger's loader does")
+  } catch (requireErr) {
+    if (requireErr?.status === 3) {
+      await cleanup()
+      fail(
+        "server.js cannot be loaded with require(): ERR_REQUIRE_ASYNC_MODULE.\n" +
+          "Hostinger's LiteSpeed loader require()s this file, so the deployment\n" +
+          "would fail on every request even though `node server.js` works.",
+      )
+    }
+    // Any other outcome means require() got far enough to start the server,
+    // which is the behaviour we want; the boot test above already covers health.
+    ok("server.js loads via require() the way Hostinger's loader does")
+  }
 
   // A static page proves the server runs; only a query proves Prisma survived
   // the install. This is the check that the "Internal Server Error" needed.

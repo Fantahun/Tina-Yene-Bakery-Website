@@ -227,6 +227,15 @@ of which corresponds to a failure that actually reached production during setup:
 | The Turbopack copy of `@prisma/client` loads **with `node_modules/.prisma` and `node_modules/@prisma` deleted** | Bare specifiers resolved upward locally but not on the server → "Failed to load external module" |
 | Extracted archive boots and serves a static page | Catches over-aggressive trimming |
 | Extracted archive serves a **database-backed** route | A static page passes while Prisma is broken |
+| `server.js` loads via `require()`, not just `node server.js` | Hostinger's LiteSpeed loader `require()`s the entry file, which rejects top-level await → `ERR_REQUIRE_ASYNC_MODULE` on every request |
+
+**Never wrap `server.js`.** It ships exactly as Next emits it. An attempt to
+prepend a launcher that set `UV_THREADPOOL_SIZE` before `await import`-ing the
+real server took the site down: `node server.js` ran fine locally, but
+Hostinger's loader uses `require()`, and `require()` cannot load an ESM graph
+containing top-level await. If you ever need `UV_THREADPOOL_SIZE`, set it in the
+environment panel — the process manager exports it before Node starts, which is
+the only point where it has any effect anyway.
 
 Flags: `--skip-build` reuses the existing `.next`; `--linux-only` strips the
 Windows engine to save ~15 MB (at the cost of not being able to run the package
