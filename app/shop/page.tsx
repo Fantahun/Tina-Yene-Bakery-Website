@@ -3,7 +3,7 @@ import { Suspense } from "react";
 
 import { unstable_cache } from "next/cache";
 
-import { prisma } from "@/lib/prisma";
+import { prisma, prismaReady } from "@/lib/prisma";
 import { DEFAULT_PUBLIC_REVALIDATE_SECONDS } from "@/lib/isr";
 import type { ShopCategory, ShopProduct } from "@/lib/shop-types";
 
@@ -12,6 +12,10 @@ import type { ShopCategory, ShopProduct } from "@/lib/shop-types";
 export const dynamic = "force-dynamic";
 
 async function getShopPageData() {
+  // Ensure the query engine has finished starting before firing concurrent
+  // queries at it - on a cold start that race panics the engine.
+  await prismaReady();
+
   const [categories, products] = await Promise.all([
     prisma.category.findMany({
       where: {

@@ -451,6 +451,18 @@ If a normal admin edit did not appear, that is a bug rather than a cache-timing
 issue: check that the route's mutating handlers are exported through
 `withCacheInvalidation`.
 
+**`PANIC: timer has gone away` / `PrismaClientRustPanicError`**
+The Rust query engine crashed because concurrent queries reached it while it was
+still initialising - the debug log shows `library already starting,
+this.libraryStarted: false` repeated. The crash is unrecoverable: the client
+stays dead until the process restarts, so the site returns 500s continuously
+rather than only on the first request.
+
+`lib/prisma.ts` prevents this with a client extension that awaits a single shared
+`$connect()` before any query runs. If you see this again, check that the extended
+client is still the one being exported - a plain `new PrismaClient()` used
+directly anywhere bypasses the guard.
+
 **App won't start / 503**
 Check the Node app logs in hPanel. Most common cause is `.env` missing or
 `DATA_BASE_URL` malformed.

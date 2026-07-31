@@ -732,8 +732,23 @@ step("Step 7: Booting the extracted archive")
 // an over-aggressive trim, each of which produced a 503 in production.
 await (async () => {
   const { spawn } = await import("node:child_process")
+  // A server from a previous verification run can still hold file handles here
+  // on Windows, so retry rather than aborting a build that is otherwise fine.
   const extractDir = path.join(ROOT, ".zip-verify")
-  fs.rmSync(extractDir, { recursive: true, force: true })
+  for (let attempt = 0; ; attempt++) {
+    try {
+      fs.rmSync(extractDir, { recursive: true, force: true })
+      break
+    } catch (err) {
+      if (attempt >= 5) {
+        fail(
+          `Could not clear ${extractDir}: ${err}\n` +
+            "A node process from an earlier run is probably still holding it.",
+        )
+      }
+      await new Promise((r) => setTimeout(r, 800))
+    }
+  }
   fs.mkdirSync(extractDir, { recursive: true })
 
   try {
@@ -926,11 +941,20 @@ await (async () => {
   // top-level await, so a package can pass the boot test above and still fail
   // with ERR_REQUIRE_ASYNC_MODULE in production. Load it the platform's way.
   try {
+    // require() starts the server, which would then keep the check process alive
+    // forever. Exit as soon as the module has loaded - reaching that point is
+    // the whole assertion. PORT is shifted so this cannot collide with the
+    // server started above.
     execSync(
       `node -e "try { require('./server.js') } catch (e) { ` +
-        `if (e.code === 'ERR_REQUIRE_ASYNC_MODULE') { console.error('TLA'); process.exit(3) } ` +
-        `process.exit(0) }"`,
-      { cwd: extractDir, stdio: "pipe", timeout: 30_000 },
+        `if (e.code === 'ERR_REQUIRE_ASYNC_MODULE') { console.error('TLA'); process.exit(3) } } ` +
+        `process.exit(0)"`,
+      {
+        cwd: extractDir,
+        stdio: "pipe",
+        timeout: 30_000,
+        env: { ...process.env, PORT: "3991" },
+      },
     )
     ok("server.js loads via require() the way Hostinger's loader does")
   } catch (requireErr) {

@@ -53,6 +53,16 @@ function collectFiles(root) {
       const name = prefix ? `${prefix}/${entry.name}` : entry.name
       if (entry.isDirectory()) walk(full, name)
       else if (entry.isFile()) out.push({ absolute: full, name })
+      else if (entry.isSymbolicLink()) {
+        // Next emits .nft.json trace files as symlinks whose targets are not
+        // always copied into the package. Follow the link when it resolves and
+        // skip it when it dangles, rather than aborting the whole archive.
+        try {
+          if (fs.statSync(full).isFile()) out.push({ absolute: full, name })
+        } catch {
+          // Dangling link: nothing to archive.
+        }
+      }
     }
   }
   walk(root, "")
@@ -71,7 +81,17 @@ export function writeZip(sourceDir, zipPath) {
 
   try {
     for (const file of files) {
-      const data = fs.readFileSync(file.absolute)
+      let data
+      let mtime
+      try {
+        data = fs.readFileSync(file.absolute)
+        mtime = fs.statSync(file.absolute).mtime
+      } catch {
+        // The entry disappeared or is an unreadable link. Skipping keeps the
+        // archive valid; the build's own verification catches anything that
+        // actually mattered.
+        continue
+      }
       const crc = crc32(data)
       const compressed = zlib.deflateRawSync(data, { level: 6 })
       // Only accept compression when it actually helps.
@@ -80,7 +100,7 @@ export function writeZip(sourceDir, zipPath) {
       const method = useDeflate ? 8 : 0
 
       const nameBuf = Buffer.from(file.name, "utf8")
-      const { time, date } = dosDateTime(fs.statSync(file.absolute).mtime)
+      const { time, date } = dosDateTime(mtime)
 
       const local = Buffer.alloc(30)
       local.writeUInt32LE(0x04034b50, 0)

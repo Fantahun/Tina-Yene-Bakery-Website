@@ -6,7 +6,7 @@ import { CtaBanner } from "@/components/home/cta-banner"
 
 import { unstable_cache } from "next/cache"
 
-import { prisma } from "@/lib/prisma"
+import { prisma, prismaReady } from "@/lib/prisma"
 import { DEFAULT_PUBLIC_REVALIDATE_SECONDS } from "@/lib/isr"
 import type { ShopCategory, ShopProduct } from "@/lib/shop-types"
 
@@ -22,6 +22,10 @@ export const dynamic = "force-dynamic"
 const MAX_FEATURED = 4
 
 async function getHomeData() {
+  // Ensure the query engine has finished starting before firing concurrent
+  // queries at it - on a cold start that race panics the engine.
+  await prismaReady()
+
   const [categories, topByQuantity] = await Promise.all([
     prisma.category.findMany({
       where: {
