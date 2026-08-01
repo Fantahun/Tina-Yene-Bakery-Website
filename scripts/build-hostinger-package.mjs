@@ -102,6 +102,49 @@ if (/^\s*binaryTargets\s*=/m.test(schema)) {
 }
 ok("prisma schema is engine-free (driver adapter)")
 
+// Next inlines every NEXT_PUBLIC_* variable into the compiled output at BUILD
+// time - server chunks included. They are literal strings by the time the server
+// starts, so Hostinger's environment panel cannot change them. Building from
+// `.env` therefore shipped http://localhost:3001 into production and redirected
+// paying customers to their own machine after checkout.
+//
+// `next build` loads `.env.production` ahead of `.env`, so production values win
+// here while `.env` keeps serving `pnpm dev`.
+const prodEnvPath = path.join(ROOT, ".env.production")
+if (!fs.existsSync(prodEnvPath)) {
+  fail(
+    ".env.production is missing.\n" +
+      "Copy .env.production.example to .env.production and fill in the real\n" +
+      "values. Without it the build inlines localhost URLs from .env.",
+  )
+}
+
+const prodEnv = Object.fromEntries(
+  fs
+    .readFileSync(prodEnvPath, "utf8")
+    .split(/\r?\n/)
+    .map((line) => /^\s*([A-Z0-9_]+)\s*=\s*(.*)$/i.exec(line))
+    .filter(Boolean)
+    .map((m) => [m[1], m[2].trim().replace(/^["']|["']$/g, "")]),
+)
+
+const prodBaseUrl = prodEnv.NEXT_PUBLIC_BASE_URL
+if (!prodBaseUrl) {
+  fail(".env.production does not set NEXT_PUBLIC_BASE_URL.")
+}
+if (/^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:|\/|$)/i.test(prodBaseUrl)) {
+  fail(
+    `.env.production sets NEXT_PUBLIC_BASE_URL to "${prodBaseUrl}", a local\n` +
+      "address. It would be compiled into the build and break checkout redirects\n" +
+      "and email links for real customers.",
+  )
+}
+ok(`.env.production present (base URL ${prodBaseUrl})`)
+
+if (prodEnv.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY?.startsWith("pk_test_")) {
+  warn("Stripe publishable key is a TEST key - checkout will not take real payments")
+}
+
 // ---------------------------------------------------------------------------
 step("Step 2: Build")
 
@@ -119,6 +162,70 @@ if (!fs.existsSync(standaloneDir)) {
   fail(".next/standalone was not produced. Check the build output above.")
 }
 ok("Standalone server bundle produced")
+
+// Verify the compiled output rather than trusting that the right env file was
+// loaded. This is the check that would have caught localhost:3001 reaching
+// production: it was compiled into a server chunk, where nothing at runtime -
+// not the environment panel, not a restart - could change it.
+{
+  // Look for OUR development URL specifically, not any localhost string.
+  // Libraries legitimately embed their own local defaults - NextAuth compiles in
+  // "http://localhost:3000/api/auth" as a placeholder it replaces from
+  // NEXTAUTH_URL at runtime - so a blanket search reports false positives.
+  const devEnvPath = path.join(ROOT, ".env")
+  const devBaseUrl = fs.existsSync(devEnvPath)
+    ? /^\s*NEXT_PUBLIC_BASE_URL\s*=\s*(.*)$/m
+        .exec(fs.readFileSync(devEnvPath, "utf8"))?.[1]
+        ?.trim()
+        .replace(/^["']|["']$/g, "")
+    : null
+
+  const offenders = []
+  let productionUrlSeen = false
+
+  const scan = (dir) => {
+    if (!fs.existsSync(dir)) return
+    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+      const full = path.join(dir, entry.name)
+      if (entry.isDirectory()) {
+        scan(full)
+      } else if (entry.isFile() && /\.(js|mjs|json)$/.test(entry.name)) {
+        let content
+        try {
+          content = fs.readFileSync(full, "utf8")
+        } catch {
+          continue
+        }
+        if (content.includes(prodBaseUrl)) productionUrlSeen = true
+        if (devBaseUrl && devBaseUrl !== prodBaseUrl && content.includes(devBaseUrl)) {
+          offenders.push(path.relative(ROOT, full))
+        }
+      }
+    }
+  }
+
+  scan(path.join(ROOT, ".next", "server"))
+  scan(path.join(ROOT, ".next", "static"))
+
+  if (offenders.length > 0) {
+    fail(
+      `The development URL "${devBaseUrl}" was compiled into the build:\n\n` +
+        offenders.slice(0, 10).map((o) => `  ${o}`).join("\n") +
+        (offenders.length > 10 ? `\n  ... and ${offenders.length - 10} more` : "") +
+        "\n\nThe build read .env instead of .env.production. NEXT_PUBLIC_* values\n" +
+        "are inlined at build time, so this cannot be fixed from the hosting panel.",
+    )
+  }
+
+  if (!productionUrlSeen) {
+    warn(
+      `The production URL ${prodBaseUrl} was not found in the build output.\n` +
+        "     That is expected only if no code embeds it; verify checkout redirects.",
+    )
+  } else {
+    ok(`Production URL ${prodBaseUrl} is compiled into the build`)
+  }
+}
 
 // ---------------------------------------------------------------------------
 step("Step 3: Assembling deployment directory")

@@ -181,12 +181,36 @@ never consulted.
 Verified in this project: the test key `pk_test_51Q2TBn...` is embedded in
 `.next/static/chunks/`.
 
-**Consequence for ZIP uploads:** whichever Stripe publishable key is in your local
-`.env` at build time is the key your live site uses. Setting the live key in
-Hostinger's panel will not change it. Checkout runs in test mode with no error.
+This applies to **server** code too, not just the browser bundle - a server
+action reading `process.env.NEXT_PUBLIC_BASE_URL` gets the literal string that
+was compiled in. That is how `http://localhost:3001` reached production and
+redirected paying customers to their own machine after checkout: the value was
+baked into a server chunk, where no panel setting or restart could reach it.
 
-**Before any production build:** put the **live** `pk_live_...` key in `.env`,
-build, and confirm:
+### `.env.production` supplies build-time values
+
+`next build` loads `.env.production` ahead of `.env`, so production values win at
+build time while `.env` keeps serving `pnpm dev`. Copy
+`.env.production.example` to `.env.production` and fill it in; the file is
+gitignored, and the build refuses to run without it.
+
+Three guards enforce this, each verified:
+
+| Guard | Fails when |
+|-------|-----------|
+| `.env.production` must exist | missing → tells you to copy the example |
+| `NEXT_PUBLIC_BASE_URL` must be non-local | `http://localhost:3001` → refuses to build |
+| Development URL must not appear in the output | `.env` was read instead → names the offending chunk |
+
+The third checks the **compiled output**, not the configuration - it is the only
+one that proves the right values actually landed. Note it looks for *your* dev
+URL specifically: libraries embed their own local defaults (NextAuth compiles in
+`http://localhost:3000/api/auth` as a placeholder it replaces at runtime), so a
+blanket localhost search reports false positives.
+
+**Stripe keys:** whichever publishable key is in `.env.production` at build time
+is the key your live site uses. The build warns on a `pk_test_` key; replace it
+with `pk_live_...` and rebuild before taking real payments. Confirm with:
 
 ```bash
 grep -rl "pk_live_" .next/static | head -1   # should match
@@ -442,20 +466,12 @@ is not in the ZIP, so it is never overwritten.**
 ## Troubleshooting
 
 **Checkout redirects to `localhost` after payment**
-`NEXT_PUBLIC_BASE_URL` is missing or still local in the environment panel. It is
-read at **runtime** by the Stripe server action, so this is a panel fix and needs
-no rebuild:
+`NEXT_PUBLIC_BASE_URL` was wrong **at build time**. Fix it in `.env.production`
+and rebuild - the hosting panel cannot correct this (see "Environment variables"
+above for why).
 
-```
-NEXT_PUBLIC_BASE_URL=https://yenebakery.com
-NEXTAUTH_URL=https://yenebakery.com
-```
-
-Restart the Node app afterwards. `NEXTAUTH_URL` needs the same value or admin
-login redirects break in the same way.
-
-Checkout now throws if this is unset or local, rather than charging the customer
-and then sending them to an address only reachable on a developer's machine.
+`NEXTAUTH_URL` is a separate, runtime variable and does belong in the panel; set
+it to the same origin or admin login redirects break in the same way.
 
 **An admin change is not showing on the public site**
 Admin writes purge the caches automatically, so this normally means the change
