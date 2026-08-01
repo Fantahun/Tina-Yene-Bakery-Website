@@ -571,30 +571,63 @@ and the endpoint URL must be `https://yenebakery.com/api/webhooks/stripe`.
 
 ## Alternatives to building locally
 
-### Building on Hostinger from a Git repo
+### Building on Hostinger (from GitHub or an uploaded source ZIP)
 
-`package.json` `start` runs `scripts/start-server.mjs`, which detects a
-standalone build and launches `.next/standalone/server.js` (copying `.next/static`
-and `public/` beside it), falling back to `next start` otherwise. So the repo is
-*capable* of a server-side build: build command `npm run build`, start `npm start`.
+Both work the same way once the app is configured. The build happens where it
+runs, so the whole class of cross-platform packaging bugs above disappears - no
+engine mismatch, no path separators, no module-resolution surprises.
 
-It has **not been verified end to end here**, and the risks are known:
+**Settings**
 
-- The whole class of packaging bugs above disappears — the build happens where it
-  runs, so no cross-platform engine, path-separator, or module-resolution issues.
-- But `npm install` + `next build` on a shared host is genuinely heavy: hundreds
-  of processes and threads for several minutes, every deploy. That is transient,
-  not a steady-state leak.
-- The build needs `DATA_BASE_URL` present at build time even though the pages
-  render on demand, because `next build` evaluates route modules.
-- If the build OOMs or is killed mid-way, the site can be left broken, whereas a
-  bad ZIP upload leaves the previous version running until you replace it.
+| Setting | Value |
+|---------|-------|
+| Framework preset | **Other** |
+| Root directory | `./` |
+| Node version | **22.x** |
+| Package manager | **npm** (see note below) |
+| **Build command** | `npm run build` |
+| **Entry file** | `.next/standalone/server.js` |
+| Output directory | *(leave empty)* |
 
-### Uploading source and building on the server
+`npm run build` runs `prisma generate && next build && node scripts/prepare-standalone.mjs`:
 
-Same trade as above without push-to-deploy. Zip the repo *without* `node_modules`
-and `.next`, set build command to `npm install && npm run build`, entry file
-`server.js`. Untested here.
+- `prisma generate` is **required** and easy to miss - there is no `postinstall`
+  hook any more (Prisma 7's schema broke the old one), so without it the build
+  fails with `Module not found: Can't resolve '@prisma/client'`.
+- `prepare-standalone.mjs` copies `.next/static` and `public/` into
+  `.next/standalone/`, which `next build` deliberately omits. Without it the site
+  renders HTML with no CSS, JS or images. It also deletes the `.env` files Next
+  copies into the output, so the hosting panel's variables are not shadowed.
+
+**Package manager:** the repo has a `pnpm-lock.yaml`, so pnpm gives reproducible
+installs. npm ignores that lockfile and resolves fresh, which usually works but
+can pull different patch versions. Either is fine; pnpm is the safer default if
+Hostinger's pnpm is v10 or newer.
+
+**Environment variables.** On this path the panel's values *are* used at build
+time, so `NEXT_PUBLIC_*` works from the panel here - unlike the prebuilt-ZIP flow,
+where they are already compiled in. Set everything from the table above, including:
+
+```
+NEXT_PUBLIC_BASE_URL=https://yenebakery.com
+NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_live_...
+DATA_BASE_URL=mysql://user:pass@127.0.0.1:3306/db?connection_limit=5&pool_timeout=10&connect_timeout=10
+NEXTAUTH_URL=https://yenebakery.com
+NEXTAUTH_SECRET=...
+```
+
+`.env.production` is **not** committed, so it does not exist on the server - the
+panel is the only source. Nothing needs `.env.production` on this path.
+
+**What to expect**
+
+- A large, transient process/CPU spike during `npm install` + `next build` -
+  several minutes, every deploy. That is the build, not a leak; judge the plan by
+  the steady state afterwards.
+- `next build` evaluates route modules, so `DATA_BASE_URL` should be set before
+  the first build even though the pages render on demand.
+- If a build is killed part-way the site can be left broken, whereas a bad ZIP
+  upload leaves the previous version serving until you replace it.
 
 ### Uploading a pre-built package and building again on the server
 

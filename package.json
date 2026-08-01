@@ -21,8 +21,8 @@
   "scripts": {
     "dev": "next dev --webpack",
     "dev:turbo": "next dev --turbopack",
-    "build": "next build",
-    "start": "node scripts/start-server.mjs",
+    "build": "prisma generate && next build && node scripts/prepare-standalone.mjs",
+    "start": "node .next/standalone/server.js",
     "lint": "eslint .",
     "build:hostinger": "node scripts/build-hostinger-package.mjs",
     "seed:orders": "node scripts/seed-orders.mjs",
