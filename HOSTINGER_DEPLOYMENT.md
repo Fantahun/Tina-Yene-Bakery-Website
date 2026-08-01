@@ -1,9 +1,21 @@
 # Hostinger Deployment Runbook
 
-Build locally, upload a ZIP, run one Node process. Nothing is installed or
-compiled on the server.
-
 **Target plan:** 3 GB RAM · 2 CPU · 600k inodes · **120 max processes**
+
+Two deployment paths, both verified working:
+
+| | Build locally, upload a ZIP | Build on Hostinger (GitHub or source ZIP) |
+|---|---|---|
+| Where the build runs | Your machine | The server |
+| Deploy-time load | None | Large transient spike, every deploy |
+| `NEXT_PUBLIC_*` from the panel | **No** - compiled in at build time | **Yes** - the build reads the panel |
+| Cross-platform packaging risk | Real; the build script guards it | None - built where it runs |
+| Failed deploy | Previous version keeps serving | Site can be left broken mid-build |
+
+Start with **[building on Hostinger](#building-on-hostinger-from-github-or-an-uploaded-source-zip)** -
+it is simpler, and environment variables behave the way you would expect. The ZIP
+path exists for keeping the build off a constrained host, and most of this
+document is the hard-won detail that makes it reliable.
 
 ---
 
@@ -224,9 +236,14 @@ environment, so the build-time keys are picked up correctly there.
 
 ## Deploying: build locally, upload a ZIP
 
-This is the path that is **known to work** — the live site was deployed this way
-and takes orders end to end. Building on the server is possible but was never
-made to work here; see "Alternatives" at the end for why.
+The live site was deployed this way and takes orders end to end. It keeps the
+build off the shared host entirely, at the cost of the packaging work described
+below - everything here exists because building on Windows and running on Linux
+went wrong in a specific way at least once.
+
+**[Building on Hostinger](#building-on-hostinger-from-github-or-an-uploaded-source-zip)**
+is also verified and is the simpler default; use this path when you want no
+deploy-time load on the server.
 
 ### Build
 
@@ -569,27 +586,31 @@ and the endpoint URL must be `https://yenebakery.com/api/webhooks/stripe`.
 
 ---
 
-## Alternatives to building locally
+## Building on Hostinger instead
 
 ### Building on Hostinger (from GitHub or an uploaded source ZIP)
 
-Both work the same way once the app is configured. The build happens where it
-runs, so the whole class of cross-platform packaging bugs above disappears - no
-engine mismatch, no path separators, no module-resolution surprises.
+**Verified working.** Both paths behave the same once configured, and the whole
+class of cross-platform packaging bugs above disappears - the build happens where
+it runs, so no engine mismatch, no path separators, no module-resolution
+surprises. Vercel builds from the same commands.
 
-**Settings**
+**Settings** (these exact values produced a successful build)
 
 | Setting | Value |
 |---------|-------|
 | Framework preset | **Other** |
 | Root directory | `./` |
 | Node version | **22.x** |
-| Package manager | **npm** (see note below) |
-| **Build command** | `npm run build` |
+| Package manager | **pnpm** |
+| **Build command** | `pnpm run build` |
+| Output directory | `.next` |
 | **Entry file** | `.next/standalone/server.js` |
-| Output directory | *(leave empty)* |
 
-`npm run build` runs `prisma generate && next build && node scripts/prepare-standalone.mjs`:
+If the source ZIP extracts into a wrapper folder, set Root directory to that
+folder - it must be the one containing `package.json`.
+
+`pnpm run build` runs `prisma generate && next build && node scripts/prepare-standalone.mjs`:
 
 - `prisma generate` is **required** and easy to miss - there is no `postinstall`
   hook any more (Prisma 7's schema broke the old one), so without it the build
@@ -599,14 +620,49 @@ engine mismatch, no path separators, no module-resolution surprises.
   renders HTML with no CSS, JS or images. It also deletes the `.env` files Next
   copies into the output, so the hosting panel's variables are not shadowed.
 
-**Package manager:** the repo has a `pnpm-lock.yaml`, so pnpm gives reproducible
-installs. npm ignores that lockfile and resolves fresh, which usually works but
-can pull different patch versions. Either is fine; pnpm is the safer default if
-Hostinger's pnpm is v10 or newer.
+---
+
+#### Watch: Hostinger can silently switch back to npm
+
+The package manager selection has been observed **reverting to npm** - after an
+environment-variable change, and at other times without an obvious trigger.
+
+It matters because the repo ships a `pnpm-lock.yaml` and no `package-lock.json`.
+npm ignores the pnpm lockfile and resolves everything fresh, so the build may pull
+different patch versions than the ones that were tested. It usually still works,
+which is exactly what makes it easy to miss.
+
+**Check the build log every deploy.** A pnpm build opens with:
+
+```
+Lockfile is up to date, resolution step is skipped
+...
+Done in 8.3s using pnpm v10.32.1
+```
+
+If it says `npm install` instead, set Package manager back to **pnpm** and
+redeploy.
+
+#### Watch: an environment-variable change may not take effect
+
+Editing a variable triggers a rebuild, but the **new value does not always reach
+the build**. The rebuild succeeds and the old value is still compiled in, which is
+particularly damaging for `NEXT_PUBLIC_*` - those are inlined, so a stale value
+survives until the next successful build.
+
+After changing any variable, verify the running site reflects it. If it does not:
+
+1. **Delete** the variable in the panel
+2. **Re-add** it with the correct value
+3. Rebuild
+
+Editing in place has been unreliable; removing and re-adding has worked.
+
+---
 
 **Environment variables.** On this path the panel's values *are* used at build
 time, so `NEXT_PUBLIC_*` works from the panel here - unlike the prebuilt-ZIP flow,
-where they are already compiled in. Set everything from the table above, including:
+where they are already compiled in and the panel cannot reach them. Set:
 
 ```
 NEXT_PUBLIC_BASE_URL=https://yenebakery.com
@@ -616,14 +672,29 @@ NEXTAUTH_URL=https://yenebakery.com
 NEXTAUTH_SECRET=...
 ```
 
-`.env.production` is **not** committed, so it does not exist on the server - the
-panel is the only source. Nothing needs `.env.production` on this path.
+**A source ZIP may carry `.env` files that a Git deploy will not.** Both `.env`
+and `.env.production` are gitignored, so a GitHub deploy never sees them - but a
+ZIP made from the project folder includes them unless they are excluded. The build
+log names what it loaded:
+
+```
+▲ Next.js 16.1.6 (Turbopack)
+- Environments: .env.production, .env      ← both were in the upload
+```
+
+Next's precedence is `process.env` (the panel) → `.env.production` → `.env`, so
+panel values still win **where they are set**. The risk is a variable that is
+*only* in the file: it silently supplies a value the panel never approved. If
+`.env.production` still points at a previous test domain, that is what gets
+compiled in.
+
+Those files also put real credentials on the server's filesystem. Prefer zipping
+without them, or delete them after extracting and rebuild.
 
 **What to expect**
 
-- A large, transient process/CPU spike during `npm install` + `next build` -
-  several minutes, every deploy. That is the build, not a leak; judge the plan by
-  the steady state afterwards.
+- A large, transient process/CPU spike during install + build - that is the
+  build, not a leak. Judge the plan by the steady state afterwards.
 - `next build` evaluates route modules, so `DATA_BASE_URL` should be set before
   the first build even though the pages render on demand.
 - If a build is killed part-way the site can be left broken, whereas a bad ZIP
