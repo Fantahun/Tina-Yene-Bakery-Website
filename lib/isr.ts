@@ -1,4 +1,21 @@
-export const DEFAULT_PUBLIC_REVALIDATE_SECONDS = 60 * 60 * 24
+/**
+ * How long cached storefront queries stay fresh, in seconds.
+ *
+ * Set NEXT_PUBLIC_ISR_REVALIDATE_SECONDS to tune it without a code change - on
+ * Hostinger that means the environment-variable panel and a restart. This is
+ * only the *upper bound*: every admin write purges the caches immediately (see
+ * lib/cache-invalidation.ts), so edits appear straight away regardless.
+ *
+ * Lower values mean fresher data if something bypasses the admin API and writes
+ * to MySQL directly; higher values mean fewer queries. 86400 (24h) is a safe
+ * default now that invalidation is wired up.
+ */
+const parsedRevalidateSeconds = Number(process.env.NEXT_PUBLIC_ISR_REVALIDATE_SECONDS)
+
+export const DEFAULT_PUBLIC_REVALIDATE_SECONDS =
+  Number.isFinite(parsedRevalidateSeconds) && parsedRevalidateSeconds > 0
+    ? parsedRevalidateSeconds
+    : 60 * 60 * 24
 
 export const PUBLIC_PATHS = {
   home: "/",

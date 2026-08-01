@@ -21,17 +21,16 @@
   "scripts": {
     "dev": "next dev --webpack",
     "dev:turbo": "next dev --turbopack",
-    "build": "next build",
-    "start": "node scripts/start-server.mjs",
+    "build": "prisma generate && next build && node scripts/prepare-standalone.mjs",
+    "start": "node .next/standalone/server.js",
     "lint": "eslint .",
     "build:hostinger": "node scripts/build-hostinger-package.mjs",
-    "postinstall": "prisma generate",
     "seed:orders": "node scripts/seed-orders.mjs",
     "smoke:reports": "node scripts/reports-smoke.mjs"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",
-    "@prisma/client": "5.22.0",
+    "@prisma/client": "7.9.1",
     "@prisma/config": "^7.4.1",
     "@radix-ui/react-accordion": "1.2.2",
     "@radix-ui/react-alert-dialog": "1.1.4",
@@ -92,7 +91,8 @@
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
     "vaul": "^1.1.2",
-    "zod": "^3.24.1"
+    "zod": "^3.24.1",
+    "@prisma/adapter-mariadb": "7.9.1"
   },
   "devDependencies": {
     "@eslint/eslintrc": "^3.3.3",
@@ -104,19 +104,9 @@
     "eslint": "^9.7.0",
     "eslint-config-next": "^16.1.6",
     "postcss": "^8.5",
-    "prisma": "5.22.0",
+    "prisma": "7.9.1",
     "tailwindcss": "^3.4.17",
     "typescript": "5.7.3"
   },
-  "pnpm": {
-    "overrides": {
-      "@types/react": "19.2.7",
-      "@types/react-dom": "19.2.3",
-      "zeptomatch": "1.2.0",
-      "@prisma/dev": "npm:prisma@7.4.1"
-    },
-    "ignoredBuiltDependencies": [
-      "bcrypt"
-    ]
-  }
+  "_comment_pnpm": "The 'pnpm' field was removed: pnpm 11 ignores it, so its overrides never applied and the lockfile was generated without them. pnpm 10 (used by Vercel) DOES read it, computed a different expected tree, and failed the frozen install with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH. Settings that are actually needed live in pnpm-workspace.yaml."
 }

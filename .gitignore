@@ -8,12 +8,15 @@ node_modules/
 .next/
 .env
 .env*.local
+# Build-time production values; see .env.production.example for the template.
+.env.production
 .DS_Store
 
 # Hostinger deployment build output (regenerate with
 # `node scripts/build-hostinger-package.mjs`)
 dist-hostinger/
 tina-bakery-hostinger*.zip
+.zip-verify/
 
 # Stale tooling scratch output
 .tmp-*.txt

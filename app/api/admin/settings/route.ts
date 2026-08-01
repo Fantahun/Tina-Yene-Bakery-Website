@@ -3,6 +3,7 @@ import { getServerSession } from "next-auth";
 
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { withCacheInvalidation } from "@/lib/cache-invalidation";
 
 async function requireAdminSession() {
   const session = await getServerSession(authOptions);
@@ -54,7 +55,7 @@ export async function GET() {
   });
 }
 
-export async function PUT(req: Request) {
+async function PUTHandler(req: Request) {
   const session = await requireAdminSession();
   if (!session)
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -136,3 +137,6 @@ export async function PUT(req: Request) {
     max_contact_submissions_per_day: settings.maxContactSubmissionsPerDay,
   });
 }
+
+// Wrapped centrally so every mutation purges the storefront caches.
+export const PUT = withCacheInvalidation(PUTHandler);

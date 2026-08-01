@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import { prisma } from '@/lib/prisma';
+import { withCacheInvalidation } from "@/lib/cache-invalidation";
 
 export async function GET(req: Request) {
   const session = await getServerSession(authOptions);
@@ -60,7 +61,7 @@ export async function GET(req: Request) {
   }
 }
 
-export async function PATCH(req: Request) {
+async function PATCHHandler(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.username) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -85,3 +86,6 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: 'Failed to update message' }, { status: 500 });
   }
 }
+
+// Wrapped centrally so every mutation purges the storefront caches.
+export const PATCH = withCacheInvalidation(PATCHHandler);

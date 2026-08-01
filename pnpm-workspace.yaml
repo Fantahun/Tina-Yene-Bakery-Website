@@ -16,9 +16,17 @@ allowBuilds:
   sharp: true
   unrs-resolver: true
 
-# NOTE: pnpm 11 no longer reads the "pnpm" field in package.json, so the
-# overrides declared there ("@types/react", "@types/react-dom", zeptomatch,
-# "@prisma/dev") are currently ignored. They belong here as `overrides:` and
-# `ignoredBuiltDependencies:` - but adding them changes the resolution and forces
-# a full reinstall, so apply it deliberately when you have registry access and
-# can re-verify the build, not as a drive-by change.
+# The "pnpm" field has been removed from package.json rather than migrated here.
+# Its overrides were never actually applied: pnpm 11 ignores that field, and the
+# lockfile proves it - the override said `@prisma/dev: npm:prisma@7.4.1` while the
+# lockfile resolved @prisma/dev@0.24.17. Meanwhile pnpm 10 (Vercel) *does* read
+# the field, computed a different expected tree, and failed the frozen install
+# with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH.
+#
+# The overrides were not worth migrating:
+#   - @types/react / @types/react-dom duplicated the devDependencies pins exactly
+#   - @prisma/dev pinned a Prisma 5-era alias, stale now that the project is on 7.9.x
+#   - ignoredBuiltDependencies listed bcrypt, which is not a dependency (bcryptjs is)
+#
+# Add `overrides:` here if one is ever genuinely needed - but note that doing so
+# changes resolution and requires regenerating the lockfile.
