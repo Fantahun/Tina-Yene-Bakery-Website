@@ -465,6 +465,32 @@ is not in the ZIP, so it is never overwritten.**
 
 ## Troubleshooting
 
+**"Server action not found" / 404 on POST after a deploy**
+Server action IDs are hashed per build, so a page from an older build cannot
+invoke an action on a newer one.
+
+A stale browser tab causes this harmlessly - a hard refresh fixes it, and it is
+expected for anyone holding a tab open across a deploy.
+
+What is *not* harmless is a **cached page** carrying stale action IDs. The
+checkout pages were prerendered as static HTML and served with
+`Cache-Control: s-maxage=31536000`, so shared caches could hold them - and the
+action IDs inside them - for a year. Every redeploy then broke checkout for
+anyone served the cached copy, and refreshing did not help because the stale HTML
+lived upstream of the browser.
+
+`app/checkout/layout.tsx` sets `dynamic = "force-dynamic"` for the whole segment
+(the pages are client components, which cannot export route config themselves).
+Checkout now returns `Cache-Control: private, no-cache, no-store`.
+
+If you add a page that calls a server action, make sure it is not prerendered:
+
+```bash
+node -e "console.log(Object.keys(require('./dist-hostinger/.next/prerender-manifest.json').routes))"
+```
+
+Static pages with no server actions (`/terms`, `/about`) should stay cached.
+
 **Checkout redirects to `localhost` after payment**
 `NEXT_PUBLIC_BASE_URL` was wrong **at build time**. Fix it in `.env.production`
 and rebuild - the hosting panel cannot correct this (see "Environment variables"

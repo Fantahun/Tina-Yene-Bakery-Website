@@ -108,15 +108,5 @@
     "tailwindcss": "^3.4.17",
     "typescript": "5.7.3"
   },
-  "pnpm": {
-    "overrides": {
-      "@types/react": "19.2.7",
-      "@types/react-dom": "19.2.3",
-      "zeptomatch": "1.2.0",
-      "@prisma/dev": "npm:prisma@7.4.1"
-    },
-    "ignoredBuiltDependencies": [
-      "bcrypt"
-    ]
-  }
+  "_comment_pnpm": "The 'pnpm' field was removed: pnpm 11 ignores it, so its overrides never applied and the lockfile was generated without them. pnpm 10 (used by Vercel) DOES read it, computed a different expected tree, and failed the frozen install with ERR_PNPM_LOCKFILE_CONFIG_MISMATCH. Settings that are actually needed live in pnpm-workspace.yaml."
 }
