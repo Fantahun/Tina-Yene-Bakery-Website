@@ -17,6 +17,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
+import { ImageUrlField } from "@/components/admin/image-url-field"
 
 interface EditCategoryDialogProps {
   category: Category | null
@@ -50,18 +51,6 @@ export function EditCategoryDialog({
       is_active: category?.is_active ?? true,
     })
   }, [category, open])
-
-  const isDev = process.env.NODE_ENV === "development"
-  const previewUrl = (() => {
-    if (!formData.image_url) return ""
-    if (!isDev) return formData.image_url
-    if (!formData.image_url.startsWith("http")) return formData.image_url
-    try {
-      return new URL(formData.image_url).pathname || formData.image_url
-    } catch {
-      return formData.image_url
-    }
-  })()
 
   const handleSave = async () => {
     setIsSaving(true)
@@ -130,28 +119,12 @@ export function EditCategoryDialog({
               />
             </div>
 
-            <div className="space-y-2">
-              <Label htmlFor="image_url">Image URL</Label>
-              <Input
-                id="image_url"
-                value={formData.image_url}
-                onChange={(e) =>
-                  setFormData({ ...formData, image_url: e.target.value })
-                }
-                placeholder="e.g., /images/cat-breads.jpg or https://example.com/image.jpg"
-              />
-            </div>
-
-            {previewUrl ? (
-              <div className="space-y-2">
-                <Label>Preview</Label>
-                <img
-                  src={previewUrl}
-                  alt="Category preview"
-                  className="h-32 w-32 rounded-md border border-border object-cover"
-                />
-              </div>
-            ) : null}
+            {/*category url section*/}
+            <ImageUrlField
+              value={formData.image_url}
+              onChange={(image_url) => setFormData({ ...formData, image_url })}
+              subject="Category"
+            />
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">

@@ -2,6 +2,7 @@
 
 import { stripe } from "@/lib/stripe";
 import { getSiteUrl, getPublicSiteUrlOrNull } from "@/lib/site-url";
+import { isRemoteImageUrl, normalizeImageUrl } from "@/lib/image-url";
 import { prisma } from "@/lib/prisma";
 import Stripe from "stripe";
 import { FulfillmentMethod, PaymentStatus, Prisma } from "@prisma/client";
@@ -103,20 +104,19 @@ export async function createCheckoutSession(data: CheckoutSessionData) {
 
       // Handle product images explicitly for Stripe
       const productImages: string[] = [];
-      if (dbProduct.imageUrl) {
-        if (dbProduct.imageUrl.startsWith("http")) {
-          productImages.push(dbProduct.imageUrl);
+      const productImageUrl = normalizeImageUrl(dbProduct.imageUrl);
+      if (productImageUrl) {
+        if (isRemoteImageUrl(productImageUrl)) {
+          // Already absolute and hosted elsewhere: Stripe can fetch it as-is.
+          productImages.push(productImageUrl);
         } else {
-          // A relative path. Stripe needs an absolute URL and fetches the image
-          // itself, so a local address is omitted rather than sent and rejected.
-          // Unlike return_url this is optional - a missing image is cosmetic, so
-          // it degrades quietly instead of throwing.
+          // A path on this site. Stripe needs an absolute URL and fetches the
+          // image itself, so a local address is omitted rather than sent and
+          // rejected. Unlike return_url this is optional - a missing image is
+          // cosmetic, so it degrades quietly instead of throwing.
           const baseUrl = getPublicSiteUrlOrNull();
           if (baseUrl) {
-            const cleanPath = dbProduct.imageUrl.startsWith("/")
-              ? dbProduct.imageUrl
-              : `/${dbProduct.imageUrl}`;
-            productImages.push(`${baseUrl}${cleanPath}`);
+            productImages.push(`${baseUrl}${productImageUrl}`);
           }
         }
       }

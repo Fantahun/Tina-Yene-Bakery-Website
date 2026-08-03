@@ -1,9 +1,9 @@
 "use client";
 
-import Image from "next/image";
 import { useAppSelector } from "@/store/hooks";
 import { selectCartItems, selectCartSubtotal } from "@/store/cart-slice";
 import { Separator } from "@/components/ui/separator";
+import { CatalogueImage } from "@/components/ui/catalogue-image";
 
 export function OrderSummary() {
   const items = useAppSelector(selectCartItems);
@@ -17,7 +17,7 @@ export function OrderSummary() {
         {items.map((item) => (
           <div key={item.cart_key} className="flex items-center gap-3">
             <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md">
-              <Image
+              <CatalogueImage
                 src={item.image_url}
                 alt={item.name}
                 fill
