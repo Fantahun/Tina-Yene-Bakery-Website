@@ -4,6 +4,10 @@ import { getServerSession } from "next-auth";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withCacheInvalidation } from "@/lib/cache-invalidation";
+import { normalizeImageUrl } from "@/lib/image-url";
+
+const IMAGE_URL_ERROR =
+  "image_url must be a path on this site (/images/photo.jpg) or a full URL (https://example.com/photo.jpg)";
 
 function slugify(value: string) {
   return value
@@ -28,6 +32,17 @@ function parseString(value: unknown) {
 
 function parseBoolean(value: unknown) {
   return typeof value === "boolean" ? value : undefined;
+}
+
+/**
+ * Null when no image was supplied, which every caller reads as "leave the
+ * stored value alone". `false` marks a value that was supplied but cannot be
+ * rendered, so the caller can reject it instead of saving a broken image.
+ */
+function parseImageUrl(value: unknown): string | null | false {
+  const provided = parseString(value);
+  if (provided === null) return null;
+  return normalizeImageUrl(provided) ?? false;
 }
 
 export async function GET() {
@@ -65,13 +80,17 @@ async function POSTHandler(req: Request) {
 
   const name = parseString(body.name);
   const description = parseString(body.description);
-  const imageUrl = parseString(body.image_url ?? body.imageUrl);
+  const imageUrl = parseImageUrl(body.image_url ?? body.imageUrl);
   const slugInput = parseString(body.slug);
   const sortOrder = Number(body.sort_order ?? body.sortOrder ?? 0);
   const isActive = parseBoolean(body.is_active ?? body.isActive);
 
   if (!name) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
+  }
+
+  if (imageUrl === false) {
+    return NextResponse.json({ error: IMAGE_URL_ERROR }, { status: 400 });
   }
 
   const slug = slugInput ?? slugify(name);
@@ -131,10 +150,14 @@ async function PUTHandler(req: Request) {
 
   const name = parseString(body.name);
   const description = parseString(body.description);
-  const imageUrl = parseString(body.image_url ?? body.imageUrl);
+  const imageUrl = parseImageUrl(body.image_url ?? body.imageUrl);
   const slugInput = parseString(body.slug);
   const sortOrder = Number(body.sort_order ?? body.sortOrder);
   const isActive = parseBoolean(body.is_active ?? body.isActive);
+
+  if (imageUrl === false) {
+    return NextResponse.json({ error: IMAGE_URL_ERROR }, { status: 400 });
+  }
 
   const slug = slugInput ?? (name ? slugify(name) : null);
   if (slug) {

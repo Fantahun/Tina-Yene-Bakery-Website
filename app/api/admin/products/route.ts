@@ -5,6 +5,10 @@ import { Prisma } from "@prisma/client";
 import { authOptions } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { withCacheInvalidation } from "@/lib/cache-invalidation";
+import { normalizeImageUrl } from "@/lib/image-url";
+
+const IMAGE_URL_ERROR =
+  "image_url must be a path on this site (/images/photo.jpg) or a full URL (https://example.com/photo.jpg)";
 
 const selectProductForAdmin = {
   id: true,
@@ -57,6 +61,17 @@ function parseString(value: unknown) {
 
 function parseBoolean(value: unknown) {
   return typeof value === "boolean" ? value : undefined;
+}
+
+/**
+ * Null when no image was supplied, which every caller reads as "leave the
+ * stored value alone". `false` marks a value that was supplied but cannot be
+ * rendered, so the caller can reject it instead of saving a broken image.
+ */
+function parseImageUrl(value: unknown): string | null | false {
+  const provided = parseString(value);
+  if (provided === null) return null;
+  return normalizeImageUrl(provided) ?? false;
 }
 
 function parseSizes(value: unknown) {
@@ -138,7 +153,7 @@ async function POSTHandler(req: Request) {
 
   const name = parseString(body.name);
   const description = parseString(body.description);
-  const imageUrl = parseString(body.image_url ?? body.imageUrl);
+  const imageUrl = parseImageUrl(body.image_url ?? body.imageUrl);
   const slugInput = parseString(body.slug);
   const categoryId = Number(body.category_id ?? body.categoryId);
   const price = Number(body.price);
@@ -166,6 +181,10 @@ async function POSTHandler(req: Request) {
       { error: "At least one valid size is required when hasSizes is enabled" },
       { status: 400 },
     );
+  }
+
+  if (imageUrl === false) {
+    return NextResponse.json({ error: IMAGE_URL_ERROR }, { status: 400 });
   }
 
   const slug = slugInput ?? slugify(name);
@@ -254,7 +273,7 @@ async function PUTHandler(req: Request) {
 
   const name = parseString(body.name);
   const description = parseString(body.description);
-  const imageUrl = parseString(body.image_url ?? body.imageUrl);
+  const imageUrl = parseImageUrl(body.image_url ?? body.imageUrl);
   const slugInput = parseString(body.slug);
   const categoryId = Number(body.category_id ?? body.categoryId);
   const price = Number(body.price);
@@ -275,6 +294,10 @@ async function PUTHandler(req: Request) {
       { error: "At least one valid size is required when hasSizes is enabled" },
       { status: 400 },
     );
+  }
+
+  if (imageUrl === false) {
+    return NextResponse.json({ error: IMAGE_URL_ERROR }, { status: 400 });
   }
 
   const slug = slugInput ?? (name ? slugify(name) : null);

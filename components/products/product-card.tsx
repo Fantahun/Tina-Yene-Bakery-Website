@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import Link from "next/link";
 import { ShoppingBag } from "lucide-react";
 import { toast } from "sonner";
@@ -9,6 +8,7 @@ import { useAppDispatch } from "@/store/hooks";
 import { addToCart } from "@/store/cart-slice";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CatalogueImage } from "@/components/ui/catalogue-image";
 
 interface ProductCardProps {
   product: ShopProduct;
@@ -47,8 +47,8 @@ export function ProductCard({ product }: ProductCardProps) {
       className="group flex flex-col overflow-hidden rounded-lg border border-border bg-card transition-shadow hover:shadow-md"
     >
       <div className="relative aspect-square overflow-hidden">
-        <Image
-          src={product.image_url || "/placeholder.jpg"}
+        <CatalogueImage
+          src={product.image_url}
           alt={product.name}
           fill
           className="object-cover transition-transform duration-500 group-hover:scale-105"

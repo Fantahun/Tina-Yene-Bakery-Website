@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import { Minus, Plus, Trash2 } from "lucide-react";
 import type { ShopProductSize } from "@/lib/shop-types";
@@ -14,6 +13,7 @@ import {
 } from "@/store/cart-slice";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { CatalogueImage } from "@/components/ui/catalogue-image";
 import {
   Select,
   SelectContent,
@@ -91,7 +91,7 @@ export function CartItem({ item }: CartItemProps) {
       {/* Image */}
       <Link href={`/shop/${item.slug}`} className="shrink-0">
         <div className="relative h-24 w-24 overflow-hidden rounded-md sm:h-28 sm:w-28">
-          <Image
+          <CatalogueImage
             src={item.image_url}
             alt={item.name}
             fill

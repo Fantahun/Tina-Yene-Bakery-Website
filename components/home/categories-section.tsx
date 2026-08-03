@@ -1,8 +1,8 @@
-import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 
 import type { ShopCategory } from "@/lib/shop-types";
+import { CatalogueImage } from "@/components/ui/catalogue-image";
 
 interface CategoriesSectionProps {
   categories: ShopCategory[];
@@ -29,8 +29,8 @@ export function CategoriesSection({ categories }: CategoriesSectionProps) {
             className="group relative overflow-hidden rounded-lg"
           >
             <div className="aspect-[4/3] overflow-hidden">
-              <Image
-                src={category.image_url || "/placeholder.jpg"}
+              <CatalogueImage
+                src={category.image_url}
                 alt={category.name}
                 width={600}
                 height={450}

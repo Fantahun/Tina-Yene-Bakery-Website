@@ -1,7 +1,6 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Image from "next/image";
 import Link from "next/link";
 import {
   ShoppingBag,
@@ -19,6 +18,7 @@ import { addToCart } from "@/store/cart-slice";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { CatalogueImage } from "@/components/ui/catalogue-image";
 
 interface ProductDetailProps {
   product: ShopProduct;
@@ -91,8 +91,8 @@ export function ProductDetail({ product }: ProductDetailProps) {
       <div className="grid grid-cols-1 gap-8 lg:grid-cols-2 lg:gap-12">
         {/* Image */}
         <div className="relative aspect-square overflow-hidden rounded-lg border border-border">
-          <Image
-            src={product.image_url || "/placeholder.jpg"}
+          <CatalogueImage
+            src={product.image_url}
             alt={product.name}
             fill
             className="object-cover"
