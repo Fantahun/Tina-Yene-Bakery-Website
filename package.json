@@ -25,6 +25,8 @@
     "start": "node .next/standalone/server.js",
     "lint": "eslint .",
     "build:hostinger": "node scripts/build-hostinger-package.mjs",
+    "seed:catalogue": "node scripts/seed-catalogue.mjs",
+    "backup:catalogue": "node scripts/backup-catalogue.mjs",
     "seed:orders": "node scripts/seed-orders.mjs",
     "smoke:reports": "node scripts/reports-smoke.mjs"
   },
