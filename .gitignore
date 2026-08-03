@@ -24,3 +24,5 @@ tina-bakery-hostinger*.zip
 .tsc-exit.txt
 .lint-output.txt
 tsconfig.tsbuildinfo
+# Database dumps - data, not code. Never commit.
+backups/
